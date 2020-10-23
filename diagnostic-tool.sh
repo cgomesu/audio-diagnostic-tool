@@ -1,15 +1,11 @@
 #!/bin/bash
-#
+
 # author: cgomesu
 # original repo: https://github.com/cgomesu/audio-diagnostic-tool
-#
-# tools doc:
+# tools docs:
+#   ffmpeg: https://ffmpeg.org/documentation.html
 #   flac: https://xiph.org/flac/documentation_tools_flac.html
-#   ffmpeg: 
-#   mp3diag: 
-#
-
-# TODO: Check spaces and tabs
+#   mp3val: http://mp3val.sourceforge.net/docs/manual.html
 
 cache () {
 	if [[ -z "$1" ]]; then
@@ -29,6 +25,101 @@ cache () {
 	else
 		> "$CACHE"
 	fi
+}
+
+check_commands () {
+	# TODO: update array with all required commands
+	local COMMANDS=('cat' 'echo' 'find' 'mkdir' 'rm' 'tr')
+	echo '[audio-diag] Checking that the following commands can be found in the users $PATH: '${COMMANDS[@]}
+	for cmd in ${COMMANDS[@]}; do
+		if [[ -z $(command -v $cmd) ]]; then
+			echo '[audio-diag] The following command cannot be found in this users $PATH:' $cmd
+			echo '[audio-diag] Fix it and  try again.'
+			exit 1
+		else
+			echo '[audio-diag] '$cmd': OK'
+		fi
+	done
+}
+
+check_dirs_files () {
+	cache check_dirs_files
+	# TODO: make this a cli arg
+	LOG_DIR='./log/'
+	if [[ ! -d $LOG_DIR ]]; then
+		echo '---------------'
+		echo '[audio-diag] '$LOG_DIR' is missing. Creating one...'
+		mkdir $LOG_DIR 2> $CACHE
+		# error checking here because others depend on this dir
+		if [[ ! -z $(cat $CACHE) ]]; then
+			echo '[audio-diag] There was an error making the directory '$LOG_DIR
+			echo '[audio-diag] Message: '$(cat $CACHE)
+			while [[ ! $LOG_DIR_input = 'y' && ! $LOG_DIR_input = 'n' ]]; do
+				read -p '[audio-diag] Would you like to provide a custom path? (y/n): ' LOG_DIR_input
+			done
+			if [[ $LOG_DIR_input = 'n' ]]; then
+				echo '[audio-diag] The log directory is required.'
+				end_diag 'Unable to make a log directory.' 1
+			else
+				while [[ ! -d $new_LOG_DIR ]]; do
+					read -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' new_LOG_DIR
+				done
+				if [[ ! $new_LOG_DIR =~ \/$ ]]; then
+					LOG_DIR=$new_LOG_DIR'/log/'
+				else
+					LOG_DIR=$new_LOG_DIR'log/'
+				fi
+				> $CACHE
+				mkdir $LOG_DIR 2> $CACHE
+				if [[ ! -z $(cat $CACHE) ]]; then
+					echo '[audio-diag] There was an error making the directory at '$LOG_DIR
+					echo '[audio-diag] Message: '$(cat $CACHE)
+					end_diag 'Unable to make a log directory.' 1
+				else
+					echo '[audio-diag] The log directory will be at '$LOG_DIR
+				fi
+			fi
+		fi
+		echo '[audio-diag] Done.'
+		echo '---------------'
+	fi
+	GOOD_LOG=$LOG_DIR'good_files.log'
+	if [[ ! -f $GOOD_LOG ]]; then
+		echo '---------------'
+		echo '[audio-diag] '$GOOD_LOG' is missing. Creating one...'
+		touch $GOOD_LOG
+		echo '[audio-diag] Done.'
+		echo '---------------'
+	fi
+	BAD_LOG=$LOG_DIR'bad_files.log'
+	if [[ ! -f $BAD_LOG ]]; then
+		echo '---------------'
+		echo '[audio-diag] '$BAD_LOG' is missing. Creating one...' 
+		touch $BAD_LOG
+		echo '[audio-diag] Done.'
+		echo '---------------'
+	fi
+	CACHE_ERRORS=$LOG_DIR'errors/'
+	if [[ ! -d $CACHE_ERRORS ]]; then
+		echo '---------------'
+		echo '[audio-diag] '$CACHE_ERRORS' is missing. Creating one...'
+		mkdir $CACHE_ERRORS
+		echo '[audio-diag] Done.'
+		echo '---------------'
+	fi
+}
+
+check_packages () {
+	local PACKAGES=('ffmpeg' 'flac' 'mp3val')
+	echo '[audio-diag] Checking that the following packages are installed and accessible in the users $PATH: '${PACKAGES[@]}
+	for package in ${PACKAGES[@]}; do
+		if [[ -z $(command -v $package) ]]; then
+			echo '[audio-diag] The following package is not installed or cannot be found in this users $PATH:' $package
+			install "$package"
+		else
+			echo '[audio-diag] '$package': OK'
+		fi
+	done
 }
 
 cleanup () {
@@ -62,106 +153,33 @@ install () {
 	echo '---------------'
 }
 
-requisites_packages () {
-	local PACKAGES=('ffmpeg' 'flac' 'mp3diag')
-	echo '[audio-diag] Checking that the following package are installed and accessible:'
-	echo '[audio-diag] '${PACKAGES[@]}
-	for package in ${PACKAGES[@]}; do
-		if [[ -z $(command -v $package) ]]; then
-			echo '[audio-diag] The following package is not installed or cannot be found in this users $PATH:' $package
-			install "$package"
-		else
-			echo '[audio-diag] '$package': Okay!'
-		fi
-	done
-}
-
-requisites_commands () {
-	# TODO: update array with all required commands
-	local COMMANDS=('cat' 'echo' 'find' 'mkdir' 'rm')
-	echo 'Checking that the following commands can be found in the users $PATH:'
-	echo ${COMMANDS[@]}
-	for cmd in ${COMMANDS[@]}; do
-		if [[ -z $(command -v $cmd) ]]; then
-			echo '[audio-diag] The following command cannot be found in this users $PATH:' $cmd
-			echo '[audio-diag] Fix it and  try again.'
-			exit 1
-		else
-			echo '[audio-diag] '$cmd': Okay!'
-		fi
-	done
-}
-
 config_diag () {
-	requisites_packages
-	requisites_commands
-	requisites_dirs_files
-}
-
-requisites_dirs_files () {
-	cache requisites_dirs_files
-	LOG_DIR='./log/'
-	if [[ ! -d $LOG_DIR ]]; then
-		echo '---------------'
-		echo '[audio-diag] '$LOG_DIR' is missing. Creating one...'
-		mkdir $LOG_DIR 2> $CACHE
-		if [[ ! -z $(cat $CACHE) ]]; then
-			echo '[audio-diag] There was an error making the directory '$LOG_DIR
-			echo '[audio-diag] Message: '$(cat $CACHE)
-			while [[ ! $LOG_DIR_input = 'y' && ! $LOG_DIR_input = 'n' ]]; do
-				read -p '[audio-diag] Would you like to provide a custom path? (y/n): ' LOG_DIR_input
-			done
-			if [[ $LOG_DIR_input = 'n' ]]; then
-				echo '[audio-diag] The log directory is required.'
-				echo '---------------'
-				end_diag 'Unable to make a log directory.' 1
-			else
-				while [[ ! -d $new_LOG_DIR && $new_LOG_DIR =~ ^\/.*$ ]]; do
-					read -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' new_LOG_DIR
-				done
-				if [[ ! $new_LOG_DIR =~ \/$ ]]; then
-					LOG_DIR=$new_LOG_DIR'/log/'
-				else
-					LOG_DIR=$new_LOG_DIR'log/'
-				fi
-				> $CACHE
-				mkdir $LOG_DIR 2> $CACHE
-				if [[ ! -z $(cat $CACHE) ]]; then
-					echo '[audio-diag] There was an error making the directory at '$LOG_DIR
-					echo '[audio-diag] Message: '$(cat $CACHE)
-					echo '---------------'
-					end_diag 'Unable to make a log directory.' 1
-				else
-					echo '[audio-diag] The log directory will be at '$LOG_DIR
-				fi
-			fi
+	check_packages
+	check_commands
+	check_dirs_files
+	# TODO: move to getopts defaults
+	EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 
+			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp3' 'mpc' 'msv' 'nmf' 'ogg' 
+			'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 
+			'webm' '8svx' 'cda')
+	if [[ -d $TARGET ]]; then
+		# https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
+		cache audio_files
+		for ext in ${EXTENSIONS[@]}; do
+			find "$TARGET" -iname "*$ext" -printf "%p\n" >> $CACHE
+		done
+		if [[ -z $(cat $CACHE) ]]; then
+			echo '[audio-diag] Did not find a single audio file in '$TARGET' and its subdirectories'
+			end_diag 'No audio files found.' 0
+		else
+			echo '[audio-diag] Found a total of '$(wc -l $CACHE | tr -cd [:digit:])' audio files in '$TARGET' and its subdirectories'
 		fi
-	    echo '[audio-diag] Done.'
-	    echo '---------------'
-	fi
-	GOOD_LOG=$LOG_DIR'good_files.log'
-	if [[ ! -f $GOOD_LOG ]]; then
-		echo '---------------'
-		echo '[audio-diag] '$GOOD_LOG' is missing. Creating one...'
-	    touch $GOOD_LOG
-	    echo '[audio-diag] Done.'
-	    echo '---------------'
-	fi
-	BAD_LOG=$LOG_DIR'bad_files.log'
-	if [[ ! -f $BAD_LOG ]]; then
-		echo '---------------'
-		echo '[audio-diag] '$BAD_LOG' is missing. Creating one...' 
-	    touch $BAD_LOG
-	    echo '[audio-diag] Done.'
-	    echo '---------------'
-	fi
-	CACHE_ERRORS=$LOG_DIR'errors/'
-	if [[ ! -d $CACHE_ERRORS ]]; then
-		echo '---------------'
-		echo '[audio-diag] '$CACHE_ERRORS' is missing. Creating one...'
-		mkdir $CACHE_ERRORS
-	    echo '[audio-diag] Done.'
-	    echo '---------------'
 	fi
 }
 
+# debugging
+
+# TARGET=$1
+# config_diag
+# cleanup
+# exit 0
