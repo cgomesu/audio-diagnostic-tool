@@ -36,8 +36,7 @@ cache () {
 
 check_commands () {
 	echo '..............'
-	# TODO: update array with all required commands
-	local COMMANDS=('cat' 'echo' 'find' 'mkdir' 'rm' 'tr')
+	local COMMANDS=('cat' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
 	echo '[audio-diag] Checking the required commands: '${COMMANDS[@]}
 	for cmd in ${COMMANDS[@]}; do
 		if [[ -z $(command -v $cmd) ]]; then
@@ -130,6 +129,47 @@ cleanup () {
 	fi
 }
 
+config_diag () {
+	check_packages
+	check_commands
+	check_dirs_files
+	if [[ -d "$TARGET" ]]; then
+		echo '[audio-diag] Searching for audio files in '$TARGET'. This may take a while...'
+		cache audio_files
+		for ext in ${EXTENSIONS[@]}; do
+		find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$CACHE"
+		done
+		if [[ -z $(cat "$CACHE") ]]; then
+			echo '[audio-diag] Did not find a single audio file in '"$TARGET"' and its subdirs.'
+			end_diag 'No audio files found.' 0
+		else
+			echo '[audio-diag] Found a total of '$(wc -l "$CACHE" | tr -cd [:digit:])' audio files in '"$TARGET"' and its subdirs.'
+		fi
+	fi
+}
+
+defaults () {
+	# required then optional
+	if [[ -z $TARGET ]]; then
+		echo 'ERROR: The argument -t is required.'
+		usage
+		exit 1
+	fi
+	if [[ -z $EXTENSIONS ]]; then
+		# https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
+		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 
+			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp3' 'mpc' 'msv' 'nmf' 'ogg' 
+			'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 
+			'webm' '8svx' 'cda')
+	fi
+	if [[ -z $LOG_DIR ]]; then
+		LOG_DIR=./log/
+	fi
+	if [[ -z $POST_PROCESSING ]]; then
+		POST_PROCESSING='none'
+	fi
+}
+
 # takes a package as arg
 install () {
 	local PACKAGE_NAME="$1"
@@ -154,26 +194,7 @@ install () {
 	echo '---------------'
 }
 
-config_diag () {
-	check_packages
-	check_commands
-	check_dirs_files
-	if [[ -d "$TARGET" ]]; then
-		echo '[audio-diag] Searching for audio files in '$TARGET'. This may take a while...'
-		cache audio_files
-		for ext in ${EXTENSIONS[@]}; do
-		find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$CACHE"
-		done
-		if [[ -z $(cat "$CACHE") ]]; then
-			echo '[audio-diag] Did not find a single audio file in '"$TARGET"' and its subdirs.'
-			end_diag 'No audio files found.' 0
-		else
-			echo '[audio-diag] Found a total of '$(wc -l "$CACHE" | tr -cd [:digit:])' audio files in '"$TARGET"' and its subdirs.'
-		fi
-	fi
-}
-
-usage() {
+usage () {
 	echo ''	
 	echo 'Author: cgomesu'
 	echo 'Repo: https://github.com/cgomesu/audio-diagnostic-tool'
@@ -188,7 +209,7 @@ usage() {
 	echo '    -t  str  Full path to a directory or file to be tested. If dir, it works recursively as well.'
 	echo ''
 	echo '  Optional:'
-	echo '    -e  str  The audio file extension to test (e.g., mp3). Default: test audio files with any common extension.'
+	echo '    -e  str  The audio file extension to test (e.g., mp3). Default: any of the common audio file extensions.'
 	echo '    -h       Show this help message.'
 	echo '    -l  str  Full path to an existing directory where the log/ subdir will be stored. Default: ./'
 	echo '    -p  str  Post-processing mode for corrupted files: fix, delete, none. Fix mode uses tool-specific solutions or re-encoding. Default: none.'
@@ -261,35 +282,8 @@ while getopts 'e:hl:p:t:' OPT; do
 	esac
 done
 
-defaults () {
-	# required then optional
-	if [[ -z $TARGET ]]; then
-		echo 'ERROR: The argument -t is required.'
-		usage
-		exit 1
-	fi
-	if [[ -z $EXTENSIONS ]]; then
-		# https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
-		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 
-			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp3' 'mpc' 'msv' 'nmf' 'ogg' 
-			'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 
-			'webm' '8svx' 'cda')
-	fi
-	if [[ -z $LOG_DIR ]]; then
-		LOG_DIR=./log/
-	fi
-	if [[ -z $POST_PROCESSING ]]; then
-		POST_PROCESSING='none'
-	fi
-}
-
 defaults
 config_diag
-
-# echo $TARGET
-# echo $POST_PROCESSING
-# echo $LOG_DIR
-# echo ${EXTENSIONS[@]}
 
 # debugging
 
