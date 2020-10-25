@@ -35,8 +35,8 @@ cache () {
 }
 
 check_commands () {
-	echo '..............'
-	local COMMANDS=('cat' 'date' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
+	echo '+++++++++++++++'
+	local COMMANDS=('cat' 'date' 'dirname' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
 	echo '[audio-diag] Checking the required commands: '${COMMANDS[@]}
 	for cmd in ${COMMANDS[@]}; do
 		if [[ -z $(command -v $cmd) ]]; then
@@ -47,11 +47,11 @@ check_commands () {
 			echo '[audio-diag] '$cmd': OK'
 		fi
 	done
-	echo '..............'
+	echo '+++++++++++++++'
 }
 
 check_dirs_files () {
-	echo '--------------'
+	echo '+++++++++++++++'
 	cache check_dirs_files
 	echo '[audio-diag] Checking log dir and files...'
 	if [[ ! -d $LOG_DIR ]]; then
@@ -104,11 +104,11 @@ check_dirs_files () {
 		mkdir $CACHE_ERRORS
 	fi
 	echo '[audio-diag] Done.'
-	echo '--------------'
+	echo '+++++++++++++++'
 }
 
 check_packages () {
-	echo '++++++++++++++'
+	echo '+++++++++++++++'
 	local PACKAGES=('ffmpeg' 'flac' 'mp3val')
 	echo '[audio-diag] Checking required packages: '${PACKAGES[@]}
 	for pkg in ${PACKAGES[@]}; do
@@ -119,7 +119,7 @@ check_packages () {
 			echo '[audio-diag] '$pkg': OK'
 		fi
 	done
-	echo '++++++++++++++'
+	echo '+++++++++++++++'
 }
 
 cleanup () {
@@ -136,19 +136,56 @@ diagnosis_config () {
 }
 
 diagnosis_run () {
+	echo '---------------'
+	cache audio_files
+	AUDIO_FILES=$CACHE
 	if [[ -d "$TARGET" ]]; then
 		echo '[audio-diag] Searching for audio files in '"$TARGET"'. This may take a while...'
-		cache audio_files
 		for ext in ${EXTENSIONS[@]}; do
-		find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$CACHE"
+		find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$AUDIO_FILES"
 		done
-		if [[ -z $(cat "$CACHE") ]]; then
+		if [[ -z $(cat "$AUDIO_FILES") ]]; then
 			echo '[audio-diag] Did not find a single audio file in '"$TARGET"' and its subdirs.'
 			end 'No audio files found.' 0
 		else
-			echo '[audio-diag] Found a total of '$(wc -l "$CACHE" | tr -cd [:digit:])' audio files in '"$TARGET"' and its subdirs.'
+			echo '[audio-diag] Found a total of '$(wc -l "$AUDIO_FILES" | tr -cd [:digit:])' audio files in '"$TARGET"' and its subdirs.'
 		fi
+	else
+		echo "$TARGET" > "$AUDIO_FILES"
 	fi
+	while read audio_file; do
+		echo '---------------'
+		echo '[audio-diag] Processing: '"$audio_file"
+		echo '[audio-diag] Date: '$(date)
+		# skip files that have been analyzed before
+		if [[ $(cat "$GOOD_LOG" | grep -F "$audio_file") ]]; then
+			echo '[audio-diag] This file has already been processed before and it was GOOD then.'
+			echo '[audio-diag] If you want to reanalyze it, clean: '"$GOOD_LOG"
+			echo '---------------'
+			continue
+		elif [[ $(cat $BAD_LOG | grep -F "$audio_file") ]]; then
+			echo '[audio-diag] This file has already been processed before and it was BAD then.'
+			echo '[audio-diag] If you want to reanalyze it, clean: '"$BAD_LOG"
+			echo '---------------'
+			continue
+		# unmounting/moving/renaming may cause $audio_file to not be accessible anymore
+		elif [[ ! -f "$audio_file" ]]; then
+			echo '[audio-diag] The file does not exist anymore.'
+			if [[ ! -d "$(dirname "$audio_file")" ]]; then
+				echo '[audio-diag] ERROR: It looks like the directory '"$(dirname "$audio_file")"' has been moved/deleted/unmounted.'
+				echo '---------------'
+				end "An entire directory is no longer accessible." 1
+			else
+				echo '[audio-diag] WARNING: Could not process this file but the directory is still accessible.'
+				echo '---------------'
+			fi
+			continue
+		fi
+		# process file
+		cache audio_file_test
+		# TODO: Parse extension and select appropriate tool
+		echo '---------------'
+	done < $AUDIO_FILES
 }
 
 defaults () {
