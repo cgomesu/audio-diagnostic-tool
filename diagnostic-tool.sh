@@ -36,7 +36,7 @@ cache () {
 
 check_commands () {
 	echo '..............'
-	local COMMANDS=('cat' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
+	local COMMANDS=('cat' 'date' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
 	echo '[audio-diag] Checking the required commands: '${COMMANDS[@]}
 	for cmd in ${COMMANDS[@]}; do
 		if [[ -z $(command -v $cmd) ]]; then
@@ -66,7 +66,7 @@ check_dirs_files () {
 			done
 			if [[ $LOG_DIR_INPUT = 'n' ]]; then
 				echo '[audio-diag] The log directory is required.'
-				end_diag 'Unable to make a log directory.' 1
+				end 'Unable to make a log directory.' 1
 			else
 				while [[ ! -d $NEW_LOG_DIR ]]; do
 					read -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' NEW_LOG_DIR
@@ -81,7 +81,7 @@ check_dirs_files () {
 				if [[ ! -z $(cat $CACHE) ]]; then
 					echo '[audio-diag] There was an error making the directory at '$LOG_DIR
 					echo '[audio-diag] Message: '$(cat $CACHE)
-					end_diag 'Unable to make a log directory.' 1
+					end 'Unable to make a log directory.' 1
 				else
 					echo '[audio-diag] The log directory will be at '$LOG_DIR
 				fi
@@ -124,24 +124,27 @@ check_packages () {
 
 cleanup () {
 	# remove cache file
-	if [[ -f "$CACHE" ]]; then
-		rm -f "$CACHE"
+	if [[ -d "$CACHE_ROOT" ]]; then
+		rm -rf "$CACHE_ROOT"
 	fi
 }
 
-config_diag () {
+diagnosis_config () {
 	check_packages
 	check_commands
 	check_dirs_files
+}
+
+diagnosis_run () {
 	if [[ -d "$TARGET" ]]; then
-		echo '[audio-diag] Searching for audio files in '$TARGET'. This may take a while...'
+		echo '[audio-diag] Searching for audio files in '"$TARGET"'. This may take a while...'
 		cache audio_files
 		for ext in ${EXTENSIONS[@]}; do
 		find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$CACHE"
 		done
 		if [[ -z $(cat "$CACHE") ]]; then
 			echo '[audio-diag] Did not find a single audio file in '"$TARGET"' and its subdirs.'
-			end_diag 'No audio files found.' 0
+			end 'No audio files found.' 0
 		else
 			echo '[audio-diag] Found a total of '$(wc -l "$CACHE" | tr -cd [:digit:])' audio files in '"$TARGET"' and its subdirs.'
 		fi
@@ -150,7 +153,7 @@ config_diag () {
 
 defaults () {
 	# required then optional
-	if [[ -z $TARGET ]]; then
+	if [[ -z "$TARGET" ]]; then
 		echo 'ERROR: The argument -t is required.'
 		usage
 		exit 1
@@ -162,12 +165,22 @@ defaults () {
 			'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 
 			'webm' '8svx' 'cda')
 	fi
-	if [[ -z $LOG_DIR ]]; then
+	if [[ -z "$LOG_DIR" ]]; then
 		LOG_DIR=./log/
 	fi
 	if [[ -z $POST_PROCESSING ]]; then
 		POST_PROCESSING='none'
 	fi
+}
+
+# takes msg and status as arg
+end () {
+	cleanup
+	echo '#################################################'
+	echo 'EXITING THE PROGRAM WITH THE FOLLOWING MESSAGE:'
+	echo $1 
+	echo '#################################################'
+	exit $2
 }
 
 # takes a package as arg
@@ -192,6 +205,24 @@ install () {
 		# TODO: Verify that package was installed succesfully
 	fi
 	echo '---------------'
+}
+
+start () {
+	echo '#################################################'
+	echo '############# AUDIO DIAGNOSTIC TOOL #############'
+	echo '#################################################'
+	echo 'This program tests a single or multiple audio '
+	echo 'files for errors and generates logs with good '
+	echo 'files (no errors found) and bad ones (at least '
+	echo 'one error found). Files tagged as corrupted '
+	echo 'can also be fixed or deleted by changing the '
+	echo 'post-processing mode (-p).'
+	echo ''
+	echo 'For more information, check the repo:'
+	echo 'https://github.com/cgomesu/audio-diagnostic-tool'
+	echo '#################################################'
+	echo 'Date: '$(date)
+	echo '#################################################'
 }
 
 usage () {
@@ -251,20 +282,16 @@ while getopts 'e:hl:p:t:' OPT; do
 				exit 1
 			elif [[ $POST_PROCESSING =~ ^fix$ ]]; then
 				echo 'Post-processing mode is set to FIX corrupted files.'
-				echo 'Please be aware that this mode will permanently OVERWRITE all audio files tagged as corrupted.'
+				echo 'WARNING: This mode will permanently OVERWRITE ALL audio files tagged as corrupted.'
 				are_you_sure
-				if [[ $ARE_YOU_SURE_INPUT = 'n' ]]; then
-					echo 'Better safe than sorry!'
-					exit 0
-				fi
 			elif [[ $POST_PROCESSING =~ ^delete$ ]]; then
 				echo 'Post-processing mode is set to DELETE corrupted files.'
-				echo 'Please be aware that this mode will permanently REMOVE all audio files tagged as corrupted.'
+				echo 'WARNING: This mode will permanently REMOVE ALL audio files tagged as corrupted.'
 				are_you_sure
-				if [[ $ARE_YOU_SURE_INPUT = 'n' ]]; then
-					echo 'Better safe than sorry!'
-					exit 0
-				fi
+			fi
+			if [[ $ARE_YOU_SURE_INPUT = 'n' ]]; then
+				echo 'Better safe than sorry!'
+				exit 0
 			fi
 			;;
 		t)
@@ -283,11 +310,8 @@ while getopts 'e:hl:p:t:' OPT; do
 done
 
 defaults
-config_diag
-
-# debugging
-
-# TARGET=$1
-# config_diag
-# cleanup
-# exit 0
+start
+trap 'echo "!! ATTENTION !!"; end "Received a signal to stop" 1' SIGINT SIGHUP SIGTERM SIGKILL
+diagnosis_config
+diagnosis_run
+end "Finished running succesfully!" 0
