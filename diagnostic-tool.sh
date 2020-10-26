@@ -60,7 +60,7 @@ check_dirs_files () {
 		# error checking here because others depend on this dir
 		if [[ ! -z $(cat "$CACHE") ]]; then
 			echo '[audio-diag] There was an error making the directory '"$LOG_DIR"
-			echo '[audio-diag] Message: '$(cat "$CACHE)"
+			echo '[audio-diag] Message: '$(cat "$CACHE")
 			while [[ ! $LOG_DIR_INPUT = 'y' && ! $LOG_DIR_INPUT = 'n' ]]; do
 				read -p '[audio-diag] Would you like to provide a custom path? (y/n): ' LOG_DIR_INPUT
 			done
@@ -191,25 +191,25 @@ diagnosis_run () {
 			if [[  $(cat "$AUDIO_FILE_TEST")  ]]; then
 				# catch file not being accessible after testing
 				if [[ -f "$audio_file" ]]; then
-					echo '[audio-diag] Uh-oh! THE FLAC FILE HAS AN ERROR!'
+					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
 					# compare flac versions
 					if [[ "$(flac --version)" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-						CLI_vMAJOR=${BASH_REMATCH[1]}
-						CLI_vMINOR=${BASH_REMATCH[2]}
-						CLI_vPATCH=${BASH_REMATCH[3]}
+						local CLI_vMAJOR=${BASH_REMATCH[1]}
+						local CLI_vMINOR=${BASH_REMATCH[2]}
+						local CLI_vPATCH=${BASH_REMATCH[3]}
 					else
-						echo '[audio-diag] WARNING: Unable to parse the flac version of the cli tool.'
+						echo '[audio-diag] WARNING: Unable to parse the version of the flac cli.'
 					fi
 					if [[ "$(metaflac --show-vendor-tag "$audio_file")" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-						FILE_vMAJOR=${BASH_REMATCH[1]}
-						FILE_vMINOR=${BASH_REMATCH[2]}
-						FILE_vPATCH=${BASH_REMATCH[3]}
+						local FILE_vMAJOR=${BASH_REMATCH[1]}
+						local FILE_vMINOR=${BASH_REMATCH[2]}
+						local FILE_vPATCH=${BASH_REMATCH[3]}
 					else
 						echo '[audio-diag] WARNING: Unable to parse the flac version of the file.'
 					fi
 					if [[ $CLI_vMAJOR -lt $FILE_vMAJOR ]] || [[ $CLI_vMAJOR -eq $FILE_vMAJOR && $CLI_vMINOR -lt $FILE_vMINOR ]] || [[ $CLI_vMAJOR -eq $FILE_vMAJOR && $CLI_vMINOR -eq $FILE_vMINOR && $CLI_vPATCH -lt $FILE_vPATCH ]]; then
 						echo '[audio-diag] WARNING: You are possibly using an OUTDATED FLAC VERSION.'
-						echo '[audio-diag] WARNING: Update your flac cli tool and run this script again.'
+						echo '[audio-diag] WARNING: Update your flac cli tool and run this script again. Skipping file.'
 						echo '---------------'
 						continue
 					else
@@ -217,7 +217,7 @@ diagnosis_run () {
 						FLAG_CORRUPTED=true
 					fi
 				else
-					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE.'
+					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
 					echo '---------------'
 					continue
 				fi
@@ -225,7 +225,7 @@ diagnosis_run () {
 				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
 				FLAG_CORRUPTED=false
 			fi
-		# TODO: Add other testing tools
+		# TODO: Other testing tools
 		elif [[ $audio_file =~ (mp3|MP3|mp2|MP2|mp1|MP1)$ ]]; then
 			# mp3val
 			echo 'mp3val'
@@ -242,18 +242,20 @@ diagnosis_run () {
 				ERROR_FILE="$ERRORS""${BASH_REMATCH[0]}"'.txt'
 				cat "$AUDIO_FILE_TEST" > "$ERROR_FILE"
 			else
-				echo 'Unable to save the error file'
+				echo '[audio-diag] Unable to save the error file'
+			fi
+			if [[ $POST_PROCESSING = fix ]]; then
+				# TODO: Fix postprocessing
+				echo 'fix'
+			elif [[ $POST_PROCESSING = delete ]]; then
+				# TODO: Delete postprocessing
+				echo 'delete'
 			fi
 		elif [[ $FLAG_CORRUPTED = false ]]; then
-			#statements
-		else
-			echo '[audio-diag] This file has not been flagged yet. Skipping post-processing.'
+			echo '[audio-diag] The file will be appended to '"$GOOD_LOG"
+				echo "$audio_file" >> "$GOOD_LOG"
 		fi
-		
-
-		# echo 'The file will be added to' $GOOD_LOG
-		# 		echo $file >> $GOOD_LOG
-		# echo '---------------'
+		echo '---------------'
 	done < $AUDIO_FILES
 }
 
@@ -287,10 +289,6 @@ end () {
 	echo $1 
 	echo '#################################################'
 	exit $2
-}
-
-flac_compare_version () {
-	
 }
 
 # takes a package as arg
