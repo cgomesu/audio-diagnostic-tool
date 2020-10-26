@@ -54,13 +54,13 @@ check_dirs_files () {
 	echo '+++++++++++++++'
 	cache check_dirs_files
 	echo '[audio-diag] Checking log dir and files...'
-	if [[ ! -d $LOG_DIR ]]; then
-		echo '[audio-diag] '$LOG_DIR' is missing. Creating one...'
-		mkdir $LOG_DIR 2> $CACHE
+	if [[ ! -d "$LOG_DIR" ]]; then
+		echo '[audio-diag] '"$LOG_DIR"' is missing. Creating one...'
+		mkdir "$LOG_DIR" 2> "$CACHE"
 		# error checking here because others depend on this dir
-		if [[ ! -z $(cat $CACHE) ]]; then
-			echo '[audio-diag] There was an error making the directory '$LOG_DIR
-			echo '[audio-diag] Message: '$(cat $CACHE)
+		if [[ ! -z $(cat "$CACHE") ]]; then
+			echo '[audio-diag] There was an error making the directory '"$LOG_DIR"
+			echo '[audio-diag] Message: '$(cat "$CACHE)"
 			while [[ ! $LOG_DIR_INPUT = 'y' && ! $LOG_DIR_INPUT = 'n' ]]; do
 				read -p '[audio-diag] Would you like to provide a custom path? (y/n): ' LOG_DIR_INPUT
 			done
@@ -68,40 +68,40 @@ check_dirs_files () {
 				echo '[audio-diag] The log directory is required.'
 				end 'Unable to make a log directory.' 1
 			else
-				while [[ ! -d $NEW_LOG_DIR ]]; do
+				while [[ ! -d "$NEW_LOG_DIR" ]]; do
 					read -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' NEW_LOG_DIR
 				done
-				if [[ ! $NEW_LOG_DIR =~ \/$ ]]; then
+				if [[ ! "$NEW_LOG_DIR" =~ \/$ ]]; then
 					LOG_DIR=$NEW_LOG_DIR'/log/'
 				else
 					LOG_DIR=$NEW_LOG_DIR'log/'
 				fi
-				> $CACHE
-				mkdir $LOG_DIR 2> $CACHE
-				if [[ ! -z $(cat $CACHE) ]]; then
-					echo '[audio-diag] There was an error making the directory at '$LOG_DIR
-					echo '[audio-diag] Message: '$(cat $CACHE)
+				> "$CACHE"
+				mkdir "$LOG_DIR" 2> "$CACHE"
+				if [[ ! -z $(cat "$CACHE") ]]; then
+					echo '[audio-diag] There was an error making the directory at '"$LOG_DIR"
+					echo '[audio-diag] Message: '$(cat "$CACHE")
 					end 'Unable to make a log directory.' 1
 				else
-					echo '[audio-diag] The log directory will be at '$LOG_DIR
+					echo '[audio-diag] The log directory will be at '"$LOG_DIR"
 				fi
 			fi
 		fi
 	fi
 	GOOD_LOG=$LOG_DIR'good_files.log'
-	if [[ ! -f $GOOD_LOG ]]; then
-		echo '[audio-diag] '$GOOD_LOG' is missing. Creating one...'
-		touch $GOOD_LOG
+	if [[ ! -f "$GOOD_LOG" ]]; then
+		echo '[audio-diag] '"$GOOD_LOG"' is missing. Creating one...'
+		touch "$GOOD_LOG"
 	fi
 	BAD_LOG=$LOG_DIR'bad_files.log'
-	if [[ ! -f $BAD_LOG ]]; then
-		echo '[audio-diag] '$BAD_LOG' is missing. Creating one...' 
-		touch $BAD_LOG
+	if [[ ! -f "$BAD_LOG" ]]; then
+		echo '[audio-diag] '"$BAD_LOG"' is missing. Creating one...' 
+		touch "$BAD_LOG"
 	fi
-	CACHE_ERRORS=$LOG_DIR'errors/'
-	if [[ ! -d $CACHE_ERRORS ]]; then
-		echo '[audio-diag] '$CACHE_ERRORS' is missing. Creating one...'
-		mkdir $CACHE_ERRORS
+	ERRORS=$LOG_DIR'errors/'
+	if [[ ! -d "$ERRORS" ]]; then
+		echo '[audio-diag] '"$ERRORS"' is missing. Creating one...'
+		mkdir "$ERRORS"
 	fi
 	echo '[audio-diag] Done.'
 	echo '+++++++++++++++'
@@ -138,7 +138,7 @@ diagnosis_config () {
 diagnosis_run () {
 	echo '---------------'
 	cache audio_files
-	AUDIO_FILES=$CACHE
+	AUDIO_FILES="$CACHE"
 	if [[ -d "$TARGET" ]]; then
 		echo '[audio-diag] Searching for audio files in '"$TARGET"'. This may take a while...'
 		for ext in ${EXTENSIONS[@]}; do
@@ -163,7 +163,7 @@ diagnosis_run () {
 			echo '[audio-diag] If you want to reanalyze it, clean: '"$GOOD_LOG"
 			echo '---------------'
 			continue
-		elif [[ $(cat $BAD_LOG | grep -F "$audio_file") ]]; then
+		elif [[ $(cat "$BAD_LOG" | grep -F "$audio_file") ]]; then
 			echo '[audio-diag] This file has already been processed before and it was BAD then.'
 			echo '[audio-diag] If you want to reanalyze it, clean: '"$BAD_LOG"
 			echo '---------------'
@@ -181,10 +181,79 @@ diagnosis_run () {
 			fi
 			continue
 		fi
-		# process file
+		# test file
+		unset FLAG_CORRUPTED
 		cache audio_file_test
-		# TODO: Parse extension and select appropriate tool
-		echo '---------------'
+		AUDIO_FILE_TEST="$CACHE"
+		if [[ "$audio_file" =~ (flac|FLAC)$ ]]; then
+			# flac cli tool in test mode, output only errors
+			flac -st "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
+			if [[  $(cat "$AUDIO_FILE_TEST")  ]]; then
+				# catch file not being accessible after testing
+				if [[ -f "$audio_file" ]]; then
+					echo '[audio-diag] Uh-oh! THE FLAC FILE HAS AN ERROR!'
+					# compare flac versions
+					if [[ "$(flac --version)" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+						CLI_vMAJOR=${BASH_REMATCH[1]}
+						CLI_vMINOR=${BASH_REMATCH[2]}
+						CLI_vPATCH=${BASH_REMATCH[3]}
+					else
+						echo '[audio-diag] WARNING: Unable to parse the flac version of the cli tool.'
+					fi
+					if [[ "$(metaflac --show-vendor-tag "$audio_file")" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+						FILE_vMAJOR=${BASH_REMATCH[1]}
+						FILE_vMINOR=${BASH_REMATCH[2]}
+						FILE_vPATCH=${BASH_REMATCH[3]}
+					else
+						echo '[audio-diag] WARNING: Unable to parse the flac version of the file.'
+					fi
+					if [[ $CLI_vMAJOR -lt $FILE_vMAJOR ]] || [[ $CLI_vMAJOR -eq $FILE_vMAJOR && $CLI_vMINOR -lt $FILE_vMINOR ]] || [[ $CLI_vMAJOR -eq $FILE_vMAJOR && $CLI_vMINOR -eq $FILE_vMINOR && $CLI_vPATCH -lt $FILE_vPATCH ]]; then
+						echo '[audio-diag] WARNING: You are possibly using an OUTDATED FLAC VERSION.'
+						echo '[audio-diag] WARNING: Update your flac cli tool and run this script again.'
+						echo '---------------'
+						continue
+					else
+						echo '[audio-diag] The audio file is LIKELY CORRUPTED.'
+						FLAG_CORRUPTED=true
+					fi
+				else
+					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE.'
+					echo '---------------'
+					continue
+				fi
+			else
+				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
+				FLAG_CORRUPTED=false
+			fi
+		# TODO: Add other testing tools
+		elif [[ $audio_file =~ (mp3|MP3|mp2|MP2|mp1|MP1)$ ]]; then
+			# mp3val
+			echo 'mp3val'
+		else
+			# ffmpeg
+			echo 'ffmpeg'
+		fi
+		# post-processing
+		if [[ $FLAG_CORRUPTED = true ]]; then
+			echo '[audio-diag] The file will be appended to '"$BAD_LOG"
+			echo "$audio_file" >> "$BAD_LOG"
+			if [[ "$audio_file" =~ [^\/]+$ ]]; then
+				echo '[audio-diag] To investigate the error, check '"$ERRORS"
+				ERROR_FILE="$ERRORS""${BASH_REMATCH[0]}"'.txt'
+				cat "$AUDIO_FILE_TEST" > "$ERROR_FILE"
+			else
+				echo 'Unable to save the error file'
+			fi
+		elif [[ $FLAG_CORRUPTED = false ]]; then
+			#statements
+		else
+			echo '[audio-diag] This file has not been flagged yet. Skipping post-processing.'
+		fi
+		
+
+		# echo 'The file will be added to' $GOOD_LOG
+		# 		echo $file >> $GOOD_LOG
+		# echo '---------------'
 	done < $AUDIO_FILES
 }
 
@@ -198,9 +267,9 @@ defaults () {
 	if [[ -z $EXTENSIONS ]]; then
 		# https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
 		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 
-			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp3' 'mpc' 'msv' 'nmf' 'ogg' 
-			'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 
-			'webm' '8svx' 'cda')
+			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp1' 'mp2' 'mp3' 'mpc' 'msv' 
+			'nmf' 'ogg' 'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 
+			'wma' 'wv' 'webm' '8svx' 'cda')
 	fi
 	if [[ -z "$LOG_DIR" ]]; then
 		LOG_DIR=./log/
@@ -218,6 +287,10 @@ end () {
 	echo $1 
 	echo '#################################################'
 	exit $2
+}
+
+flac_compare_version () {
+	
 }
 
 # takes a package as arg
