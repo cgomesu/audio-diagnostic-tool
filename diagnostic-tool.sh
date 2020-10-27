@@ -35,7 +35,6 @@ cache () {
 }
 
 check_commands () {
-	echo '+++++++++++++++'
 	local COMMANDS=('cat' 'date' 'dirname' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
 	echo '[audio-diag] Checking the required commands: '${COMMANDS[@]}
 	for cmd in ${COMMANDS[@]}; do
@@ -51,7 +50,6 @@ check_commands () {
 }
 
 check_dirs_files () {
-	echo '+++++++++++++++'
 	cache check_dirs_files
 	echo '[audio-diag] Checking log dir and files...'
 	if [[ ! -d "$LOG_DIR" ]]; then
@@ -108,7 +106,6 @@ check_dirs_files () {
 }
 
 check_packages () {
-	echo '+++++++++++++++'
 	local PACKAGES=('ffmpeg' 'flac' 'mp3val')
 	echo '[audio-diag] Checking required packages: '${PACKAGES[@]}
 	for pkg in ${PACKAGES[@]}; do
@@ -136,7 +133,6 @@ diagnosis_config () {
 }
 
 diagnosis_run () {
-	echo '---------------'
 	cache audio_files
 	AUDIO_FILES="$CACHE"
 	if [[ -d "$TARGET" ]]; then
@@ -153,19 +149,19 @@ diagnosis_run () {
 	else
 		echo "$TARGET" > "$AUDIO_FILES"
 	fi
+	echo '---------------'
 	while read audio_file; do
-		echo '---------------'
 		echo '[audio-diag] Processing: '"$audio_file"
 		echo '[audio-diag] Date: '$(date)
-		# skip files that have been analyzed before
-		if [[ $(cat "$GOOD_LOG" | grep -F "$audio_file") ]]; then
+		# skip files that have been tested before
+		if [[ $(cat "$GOOD_LOG") =~ "$audio_file" ]]; then
 			echo '[audio-diag] This file has already been processed before and it was GOOD then.'
-			echo '[audio-diag] If you want to reanalyze it, clean: '"$GOOD_LOG"
+			echo '[audio-diag] If you want to retest it, remove it from the following log: '"$GOOD_LOG"
 			echo '---------------'
 			continue
-		elif [[ $(cat "$BAD_LOG" | grep -F "$audio_file") ]]; then
+		elif [[ $(cat "$BAD_LOG") =~ "$audio_file" ]]; then
 			echo '[audio-diag] This file has already been processed before and it was BAD then.'
-			echo '[audio-diag] If you want to reanalyze it, clean: '"$BAD_LOG"
+			echo '[audio-diag] If you want to retest it, remove it from the following log: '"$BAD_LOG"
 			echo '---------------'
 			continue
 		# unmounting/moving/renaming may cause $audio_file to not be accessible anymore
@@ -186,36 +182,15 @@ diagnosis_run () {
 		cache audio_file_test
 		AUDIO_FILE_TEST="$CACHE"
 		if [[ "$audio_file" =~ (flac|FLAC)$ ]]; then
+			echo '[audio-diag] Testing with flac...'
 			# flac cli tool in test mode, output only errors
 			flac -st "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
 			if [[  $(cat "$AUDIO_FILE_TEST")  ]]; then
 				# catch file not being accessible after testing
 				if [[ -f "$audio_file" ]]; then
 					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
-					# compare flac versions
-					if [[ "$(flac --version)" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-						local CLI_vMAJOR=${BASH_REMATCH[1]}
-						local CLI_vMINOR=${BASH_REMATCH[2]}
-						local CLI_vPATCH=${BASH_REMATCH[3]}
-					else
-						echo '[audio-diag] WARNING: Unable to parse the version of the flac cli.'
-					fi
-					if [[ "$(metaflac --show-vendor-tag "$audio_file")" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-						local FILE_vMAJOR=${BASH_REMATCH[1]}
-						local FILE_vMINOR=${BASH_REMATCH[2]}
-						local FILE_vPATCH=${BASH_REMATCH[3]}
-					else
-						echo '[audio-diag] WARNING: Unable to parse the flac version of the file.'
-					fi
-					if [[ $CLI_vMAJOR -lt $FILE_vMAJOR ]] || [[ $CLI_vMAJOR -eq $FILE_vMAJOR && $CLI_vMINOR -lt $FILE_vMINOR ]] || [[ $CLI_vMAJOR -eq $FILE_vMAJOR && $CLI_vMINOR -eq $FILE_vMINOR && $CLI_vPATCH -lt $FILE_vPATCH ]]; then
-						echo '[audio-diag] WARNING: You are possibly using an OUTDATED FLAC VERSION.'
-						echo '[audio-diag] WARNING: Update your flac cli tool and run this script again. Skipping file.'
-						echo '---------------'
-						continue
-					else
-						echo '[audio-diag] The audio file is LIKELY CORRUPTED.'
-						FLAG_CORRUPTED=true
-					fi
+					# TODO: Parse errors because some are not critical
+					FLAG_CORRUPTED=true
 				else
 					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
 					echo '---------------'
@@ -225,13 +200,41 @@ diagnosis_run () {
 				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
 				FLAG_CORRUPTED=false
 			fi
-		# TODO: Other testing tools
 		elif [[ $audio_file =~ (mp3|MP3|mp2|MP2|mp1|MP1)$ ]]; then
+			echo '[audio-diag] Testing with mp3val...'
 			# mp3val
-			echo 'mp3val'
+			mp3val -si "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
+			if [[  $(cat "$AUDIO_FILE_TEST") =~ WARNING\:\  ]]; then
+				if [[ -f "$audio_file" ]]; then
+					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
+					# TODO: Parse errors because some are not critical
+					FLAG_CORRUPTED=true
+				else
+					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
+					echo '---------------'
+					continue
+				fi
+			else
+				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
+				FLAG_CORRUPTED=false
+			fi
 		else
-			# ffmpeg
-			echo 'ffmpeg'
+			# ffmpeg as the last resort because it is more lenient (it only checks for decoding errors)
+			echo '[audio-diag] Testing with ffmpeg...'
+			ffmpeg -i "$audio_file" -v error -f null - > "$AUDIO_FILE_TEST" 2>&1
+			if [[  $(cat "$AUDIO_FILE_TEST") ]]; then
+				if [[ -f "$audio_file" ]]; then
+					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
+					FLAG_CORRUPTED=true
+				else
+					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
+					echo '---------------'
+					continue
+				fi
+			else
+				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
+				FLAG_CORRUPTED=false
+			fi
 		fi
 		# post-processing
 		if [[ $FLAG_CORRUPTED = true ]]; then
@@ -244,12 +247,17 @@ diagnosis_run () {
 			else
 				echo '[audio-diag] Unable to save the error file'
 			fi
+			if [[ "$audio_file" =~ (flac|FLAC)$ ]]; then
+				#
+			fi
 			if [[ $POST_PROCESSING = fix ]]; then
 				# TODO: Fix postprocessing
-				echo 'fix'
+				cache audio_file_fix
+				AUDIO_FILE_FIX="$CACHE"
 			elif [[ $POST_PROCESSING = delete ]]; then
 				# TODO: Delete postprocessing
-				echo 'delete'
+				cache audio_file_delete
+				AUDIO_FILE_DELETE="$CACHE"
 			fi
 		elif [[ $FLAG_CORRUPTED = false ]]; then
 			echo '[audio-diag] The file will be appended to '"$GOOD_LOG"
@@ -267,10 +275,10 @@ defaults () {
 		exit 1
 	fi
 	if [[ -z $EXTENSIONS ]]; then
-		# https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
+		# mostly from https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
 		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 
 			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp1' 'mp2' 'mp3' 'mpc' 'msv' 
-			'nmf' 'ogg' 'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'sln' 'tta' 'voc' 'vox' 'wav' 
+			'nmf' 'ogg' 'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'tta' 'voc' 'vox' 'wav' 
 			'wma' 'wv' 'webm' '8svx' 'cda')
 	fi
 	if [[ -z "$LOG_DIR" ]]; then
@@ -286,7 +294,7 @@ end () {
 	cleanup
 	echo '#################################################'
 	echo 'EXITING THE PROGRAM WITH THE FOLLOWING MESSAGE:'
-	echo $1 
+	echo "$1"
 	echo '#################################################'
 	exit $2
 }
