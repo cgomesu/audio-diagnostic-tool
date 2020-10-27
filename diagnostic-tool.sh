@@ -245,10 +245,10 @@ diagnosis_run () {
 				ERROR_FILE="$ERRORS""${BASH_REMATCH[0]}"'.txt'
 				cat "$AUDIO_FILE_TEST" > "$ERROR_FILE"
 			else
-				echo '[audio-diag] Unable to save the error file'
-			fi
-			if [[ "$audio_file" =~ (flac|FLAC)$ ]]; then
-				#
+				echo '[audio-diag] Unable to parse the filename. Using random number as name.'
+				ERROR_FILE="$ERRORS"$RANDOM'.txt'
+				cat "$AUDIO_FILE_TEST" > "$ERROR_FILE"
+				echo '[audio-diag] Saved to: '"$ERROR_FILE"
 			fi
 			if [[ $POST_PROCESSING = fix ]]; then
 				# TODO: Fix postprocessing
@@ -261,7 +261,7 @@ diagnosis_run () {
 			fi
 		elif [[ $FLAG_CORRUPTED = false ]]; then
 			echo '[audio-diag] The file will be appended to '"$GOOD_LOG"
-				echo "$audio_file" >> "$GOOD_LOG"
+			echo "$audio_file" >> "$GOOD_LOG"
 		fi
 		echo '---------------'
 	done < $AUDIO_FILES
@@ -302,23 +302,49 @@ end () {
 # takes a package as arg
 install () {
 	local PACKAGE_NAME="$1"
-	if [[ -z $PACKAGE_NAME ]]; then
-		echo '[audio-diag] Tried to install a missing package. Skipping.'
-		return
-	fi
 	echo '---------------'
 	while [[ ! $INSTALL_INPUT = 'y' && ! $INSTALL_INPUT = 'n' ]]; do
 		read -p '[audio-diag] Would you like to install the missing package now? (y/n): ' INSTALL_INPUT
 	done
 	if [[ $INSTALL_INPUT = 'n' ]]; then
 		echo '[audio-diag] All packages are required.'
-		# Alternatively, we could flag the package and try to skip it
+		echo '---------------'
+		# TODO: Alternatively, we could flag the package and try to skip it
 		exit 1
 	else
-		# TODO: check OS and run the appropriate install command
-		# assume debian-based
-		sudo apt install $PACKAGE_NAME -yy
-		# TODO: Verify that package was installed succesfully
+		if [[ -z $OS ]]; then
+			if [[ $(hostnamectl) =~ Operating\ System\:\ (.*) || $(cat /etc/*-release) =~ NAME=\"(.*)\" ]]; then
+				OS=${BASH_REMATCH[1]}
+			else
+				echo '[audio-diag] Unable to parse the name of the operating system.'
+				# try finding a package manager then
+				local PACKAGE_MANAGERS=('apt' 'pacman' 'yum')
+				for pckmng in ${PACKAGE_MANAGERS[@]}; do
+					if [[ -z $(command -v $pckmng) ]]; then
+						PACKAGE_MANAGER=$pckmng
+						break
+					fi
+				done
+				if [[ -z $PACKAGE_MANAGER ]]; then
+					echo '[audio-diag] Also unable to find a package manager.'
+					echo '[audio-diag] Please manually install '$PACKAGE_NAME' and try again.'
+					echo '---------------'
+					exit 1
+				fi
+			fi
+		fi
+		if [[ "$OS" =~ (bian|buntu) || $PACKAGE_NAME = apt ]]; then
+			sudo apt install $PACKAGE_NAME -yy
+		elif [[ "$OS" =~ (A|a)rch || $PACKAGE_NAME = pacman ]]; then
+			sudo pacman -S $PACKAGE_NAME --noconfirm
+		elif [[ "$OS" =~ (RedHat|edora|entOS|SUSE) || $PACKAGE_NAME = yum ]]; then
+			sudo yum -y install $PACKAGE_NAME
+		else
+			echo '[audio-diag] Not a mainstream distro.'
+			echo '[audio-diag] Please manually install '$PACKAGE_NAME' and try again.'
+			echo '---------------'
+			exit 1
+		fi
 	fi
 	echo '---------------'
 }
