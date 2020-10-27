@@ -138,7 +138,7 @@ diagnosis_run () {
 	if [[ -d "$TARGET" ]]; then
 		echo '[audio-diag] Searching for audio files in '"$TARGET"'. This may take a while...'
 		for ext in ${EXTENSIONS[@]}; do
-		find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$AUDIO_FILES"
+			find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$AUDIO_FILES"
 		done
 		if [[ -z $(cat "$AUDIO_FILES") ]]; then
 			echo '[audio-diag] Did not find a single audio file in '"$TARGET"' and its subdirs.'
@@ -170,9 +170,9 @@ diagnosis_run () {
 			if [[ ! -d "$(dirname "$audio_file")" ]]; then
 				echo '[audio-diag] ERROR: It looks like the directory '"$(dirname "$audio_file")"' has been moved/deleted/unmounted.'
 				echo '---------------'
-				end "An entire directory is no longer accessible." 1
+				end "A directory is no longer accessible." 1
 			else
-				echo '[audio-diag] WARNING: Could not process this file but the directory is still accessible.'
+				echo '[audio-diag] WARNING: Could not process this file but its directory is still accessible.'
 				echo '---------------'
 			fi
 			continue
@@ -181,7 +181,7 @@ diagnosis_run () {
 		unset FLAG_CORRUPTED
 		cache audio_file_test
 		AUDIO_FILE_TEST="$CACHE"
-		if [[ "$audio_file" =~ (flac|FLAC)$ ]]; then
+		if [[ "$audio_file" =~ (F|f)(L|l)(A|a)(C|c)$ ]]; then
 			echo '[audio-diag] Testing with flac...'
 			# flac cli tool in test mode, output only errors
 			flac -st "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
@@ -200,7 +200,7 @@ diagnosis_run () {
 				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
 				FLAG_CORRUPTED=false
 			fi
-		elif [[ $audio_file =~ (mp3|MP3|mp2|MP2|mp1|MP1)$ ]]; then
+		elif [[ $audio_file =~ (M|m)(P|p)(1|2|3)$ ]]; then
 			echo '[audio-diag] Testing with mp3val...'
 			# mp3val
 			mp3val -si "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
@@ -219,7 +219,7 @@ diagnosis_run () {
 				FLAG_CORRUPTED=false
 			fi
 		else
-			# ffmpeg as the last resort because it is more lenient (it only checks for decoding errors)
+			# ffmpeg as the last resort because it is more lenient
 			echo '[audio-diag] Testing with ffmpeg...'
 			ffmpeg -i "$audio_file" -v error -f null - > "$AUDIO_FILE_TEST" 2>&1
 			if [[  $(cat "$AUDIO_FILE_TEST") ]]; then
@@ -271,7 +271,6 @@ defaults () {
 	# required then optional
 	if [[ -z "$TARGET" ]]; then
 		echo 'ERROR: The argument -t is required.'
-		usage
 		exit 1
 	fi
 	if [[ -z $EXTENSIONS ]]; then
@@ -302,6 +301,7 @@ end () {
 # takes a package as arg
 install () {
 	local PACKAGE_NAME="$1"
+	# TODO: On install failure, we could flag the package and try to skip its usage instead of exiting
 	echo '---------------'
 	while [[ ! $INSTALL_INPUT = 'y' && ! $INSTALL_INPUT = 'n' ]]; do
 		read -p '[audio-diag] Would you like to install the missing package now? (y/n): ' INSTALL_INPUT
@@ -309,12 +309,11 @@ install () {
 	if [[ $INSTALL_INPUT = 'n' ]]; then
 		echo '[audio-diag] All packages are required.'
 		echo '---------------'
-		# TODO: Alternatively, we could flag the package and try to skip it
 		exit 1
 	else
 		if [[ -z $OS ]]; then
 			if [[ $(hostnamectl) =~ Operating\ System\:\ (.*) || $(cat /etc/*-release) =~ NAME=\"(.*)\" ]]; then
-				OS=${BASH_REMATCH[1]}
+				OS="${BASH_REMATCH[1]}"
 			else
 				echo '[audio-diag] Unable to parse the name of the operating system.'
 				# try finding a package manager then
@@ -333,14 +332,14 @@ install () {
 				fi
 			fi
 		fi
-		if [[ "$OS" =~ (bian|buntu) || $PACKAGE_NAME = apt ]]; then
+		if [[ "$OS" =~ b(ian|untu) || $PACKAGE_NAME = apt ]]; then
 			sudo apt install $PACKAGE_NAME -yy
 		elif [[ "$OS" =~ (A|a)rch || $PACKAGE_NAME = pacman ]]; then
 			sudo pacman -S $PACKAGE_NAME --noconfirm
-		elif [[ "$OS" =~ (RedHat|edora|entOS|SUSE) || $PACKAGE_NAME = yum ]]; then
+		elif [[ "$OS" =~ ((R|r)ed(H|h)at|(F|f)edora|(C|c)ent(OS|os)|(SUSE|suse)) || $PACKAGE_NAME = yum ]]; then
 			sudo yum -y install $PACKAGE_NAME
 		else
-			echo '[audio-diag] Not a mainstream distro.'
+			echo '[audio-diag] Could not identify the distro.'
 			echo '[audio-diag] Please manually install '$PACKAGE_NAME' and try again.'
 			echo '---------------'
 			exit 1
