@@ -156,12 +156,12 @@ diagnosis_run () {
 		# skip files that have been tested before
 		if [[ $(cat "$GOOD_LOG") =~ "$audio_file" ]]; then
 			echo '[audio-diag] This file has already been processed before and it was GOOD then.'
-			echo '[audio-diag] If you want to retest it, remove it from the following log: '"$GOOD_LOG"
+			echo '[audio-diag] If you want to retest and process it, remove it from the following log: '"$GOOD_LOG"
 			echo '---------------'
 			continue
 		elif [[ $(cat "$BAD_LOG") =~ "$audio_file" ]]; then
 			echo '[audio-diag] This file has already been processed before and it was BAD then.'
-			echo '[audio-diag] If you want to retest it, remove it from the following log: '"$BAD_LOG"
+			echo '[audio-diag] If you want to retest and process it, remove it from the following log: '"$BAD_LOG"
 			echo '---------------'
 			continue
 		# unmounting/moving/renaming may cause $audio_file to not be accessible anymore
@@ -204,7 +204,7 @@ diagnosis_run () {
 			echo '[audio-diag] Testing with mp3val...'
 			# mp3val
 			mp3val -si "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
-			if [[  $(cat "$AUDIO_FILE_TEST") =~ WARNING\:\  ]]; then
+			if [[  $(cat "$AUDIO_FILE_TEST") =~ WARNING\: ]]; then
 				if [[ -f "$audio_file" ]]; then
 					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
 					# TODO: Parse errors because some are not critical
@@ -251,17 +251,28 @@ diagnosis_run () {
 				echo '[audio-diag] Saved to: '"$ERROR_FILE"
 			fi
 			if [[ $POST_PROCESSING = fix ]]; then
+				echo '[audio-diag] POST-PROCESSING: FIX'
 				# TODO: Fix postprocessing
 				cache audio_file_fix
 				AUDIO_FILE_FIX="$CACHE"
 			elif [[ $POST_PROCESSING = delete ]]; then
-				# TODO: Delete postprocessing
+				echo '[audio-diag] POST-PROCESSING: DELETE'
 				cache audio_file_delete
 				AUDIO_FILE_DELETE="$CACHE"
+				echo '[audio-diag] Deleting file: '"$audio_file"
+				rm -f "$audio_file" 2> "$AUDIO_FILE_DELETE"
+				if [[ ! -z $(cat "$AUDIO_FILE_DELETE") ]]; then
+					echo '[audio-diag] There was an error deleting the file.'
+					echo '[audio-diag] Message: '$(cat "$AUDIO_FILE_DELETE")
+				else
+					echo '[audio-diag] File deleted!'
+				fi
 			fi
 		elif [[ $FLAG_CORRUPTED = false ]]; then
 			echo '[audio-diag] The file will be appended to '"$GOOD_LOG"
 			echo "$audio_file" >> "$GOOD_LOG"
+		else
+			echo '[audio-diag] The file has not been flagged yet. Nothing has been done to it.'
 		fi
 		echo '---------------'
 	done < $AUDIO_FILES
@@ -378,13 +389,13 @@ usage () {
 	echo "$0" '-t /path/to/dir/or/file [OPTIONS]'
 	echo ''
 	echo '  Required:'
-	echo '    -t  str  Full path to a directory or file to be tested. If dir, it works recursively as well.'
+	echo '    -t  str  Path to a dir or file to be tested. If dir, it works recursively as well.'
 	echo ''
 	echo '  Optional:'
-	echo '    -e  str  The audio file extension to test (e.g., mp3). Default: any of the common audio file extensions.'
+	echo '    -e  str  File extension to test (e.g., mp3). Default: common audio file extensions.'
 	echo '    -h       Show this help message.'
-	echo '    -l  str  Full path to an existing directory where the log/ subdir will be stored. Default: ./'
-	echo '    -p  str  Post-processing mode for corrupted files: fix, delete, none. Fix mode uses tool-specific solutions or re-encoding. Default: none.'
+	echo '    -l  str  Path to an existing dir where the log/ will be stored. Default: ./'
+	echo '    -p  str  Post-processing mode for flagged files: fix, delete, none. Default: none.'
 	echo ''
 }
 
