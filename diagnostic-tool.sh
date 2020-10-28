@@ -255,6 +255,35 @@ diagnosis_run () {
 				# TODO: Fix postprocessing
 				cache audio_file_fix
 				AUDIO_FILE_FIX="$CACHE"
+				echo '[audio-diag] Fixing file: '"$audio_file"
+				if [[ "$audio_file" =~ (F|f)(L|l)(A|a)(C|c)$ ]]; then
+					flac -sfF "$audio_file" > "$AUDIO_FILE_FIX" 2>&1
+					if [[ ! -z $(cat "$AUDIO_FILE_FIX") ]]; then
+						echo '[audio-diag] WARNING: There was an error while fixing the file.'
+						echo '[audio-diag] Message: '$(cat "$AUDIO_FILE_FIX")
+						echo '[audio-diag] Testing and fixing it one more time...'
+						> "$AUDIO_FILE_TEST"
+						flac -st "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
+						if [[ ! -z $(cat "$AUDIO_FILE_TEST") ]]; then
+							> "$AUDIO_FILE_FIX"
+							flac -sfF "$audio_file" > "$AUDIO_FILE_FIX" 2>&1
+							if [[ ! -z $(cat "$AUDIO_FILE_FIX") ]]; then
+								echo '[audio-diag] WARNING: Continued to get an error while fixing the file. File might be unfixable.'
+								echo '[audio-diag] WARNING: Manually check its error file at '"$ERRORS"
+							else
+								echo '[audio-diag] Good news! Finished fixing without errors.'
+							fi
+						else
+							echo '[audio-diag] Good news! Finished fixing without errors.'
+						fi
+					else
+						echo '[audio-diag] Good news! Finished fixing without errors.'
+					fi
+				elif [[ "$audio_file" =~ (M|m)(P|p)(1|2|3)$ ]]; then
+					echo 'fix mp3val'
+				else
+					echo 'fix ffmpeg'
+				fi
 			elif [[ $POST_PROCESSING = delete ]]; then
 				echo '[audio-diag] POST-PROCESSING: DELETE'
 				cache audio_file_delete
