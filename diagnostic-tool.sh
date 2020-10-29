@@ -169,12 +169,8 @@ diagnosis_run () {
 			echo '[audio-diag] The file does not exist anymore.'
 			if [[ ! -d "$(dirname "$audio_file")" ]]; then
 				echo '[audio-diag] ERROR: It looks like the directory '"$(dirname "$audio_file")"' has been moved/deleted/unmounted.'
-				echo '---------------'
-				end "A directory is no longer accessible." 1
-			else
-				echo '[audio-diag] WARNING: Could not process this file but its directory is still accessible.'
-				echo '---------------'
 			fi
+			echo '---------------'
 			continue
 		fi
 		# test file
@@ -202,7 +198,6 @@ diagnosis_run () {
 			fi
 		elif [[ $audio_file =~ (M|m)(P|p)(1|2|3)$ ]]; then
 			echo '[audio-diag] Testing with mp3val...'
-			# mp3val
 			mp3val -si "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
 			if [[  $(cat "$AUDIO_FILE_TEST") =~ WARNING\: ]]; then
 				if [[ -f "$audio_file" ]]; then
@@ -218,23 +213,23 @@ diagnosis_run () {
 				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
 				FLAG_CORRUPTED=false
 			fi
-		else
-			# ffmpeg as the last resort because it is more lenient
-			echo '[audio-diag] Testing with ffmpeg...'
-			ffmpeg -i "$audio_file" -v error -f null - > "$AUDIO_FILE_TEST" 2>&1
-			if [[  $(cat "$AUDIO_FILE_TEST") ]]; then
-				if [[ -f "$audio_file" ]]; then
-					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
-					FLAG_CORRUPTED=true
-				else
-					echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
-					echo '---------------'
-					continue
-				fi
-			else
-				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
-				FLAG_CORRUPTED=false
-			fi
+		# else
+		# 	# ffmpeg as the last resort because it is more lenient
+		# 	echo '[audio-diag] Testing with ffmpeg...'
+		# 	ffmpeg -i "$audio_file" -v error -f null - > "$AUDIO_FILE_TEST" 2>&1
+		# 	if [[ $(cat "$AUDIO_FILE_TEST") ]]; then
+		# 		if [[ -f "$audio_file" ]]; then
+		# 			echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
+		# 			FLAG_CORRUPTED=true
+		# 		else
+		# 			echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
+		# 			echo '---------------'
+		# 			continue
+		# 		fi
+		# 	else
+		# 		echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
+		# 		FLAG_CORRUPTED=false
+		# 	fi
 		fi
 		# post-processing
 		if [[ $FLAG_CORRUPTED = true ]]; then
@@ -280,9 +275,11 @@ diagnosis_run () {
 						echo '[audio-diag] Good news! Finished fixing without errors.'
 					fi
 				elif [[ "$audio_file" =~ (M|m)(P|p)(1|2|3)$ ]]; then
+					# TODO: missing mp3val fix
 					echo 'fix mp3val'
-				else
-					echo 'fix ffmpeg'
+				# else
+				# 	# TODO: missing ffmpeg fix
+				# 	echo 'fix ffmpeg'
 				fi
 			elif [[ $POST_PROCESSING = delete ]]; then
 				echo '[audio-diag] POST-PROCESSING: DELETE'
@@ -304,7 +301,7 @@ diagnosis_run () {
 			echo '[audio-diag] The file has not been flagged yet. Nothing has been done to it.'
 		fi
 		echo '---------------'
-	done < $AUDIO_FILES
+	done < "$AUDIO_FILES"
 }
 
 defaults () {
@@ -315,10 +312,9 @@ defaults () {
 	fi
 	if [[ -z $EXTENSIONS ]]; then
 		# mostly from https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
-		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 
-			'dvf' 'flac' 'gsm' 'iklax' 'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp1' 'mp2' 'mp3' 'mpc' 'msv' 
-			'nmf' 'ogg' 'oga' 'mogg' 'opus' 'ra' 'rm' 'raw' 'rf64' 'tta' 'voc' 'vox' 'wav' 
-			'wma' 'wv' 'webm' '8svx' 'cda')
+		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 'dvf' 'flac' 'gsm' 
+			'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp1' 'mp2' 'mp3' 'mpc' 'msv' 'nmf' 'ogg' 'oga' 'mogg' 'opus' 'ra' 
+			'rm' 'raw' 'rf64' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 'webm' 'cda')
 	fi
 	if [[ -z "$LOG_DIR" ]]; then
 		LOG_DIR=./log/
