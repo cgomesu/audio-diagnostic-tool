@@ -92,7 +92,7 @@ This will create a `./log` subdir with two log files, namely `bad_files.log` and
 ./diagnostic-tool.sh -t /full/path/to/music/folder/ -p fix
 ```
 
-## Example 3: Test recursively, delete bad files, and use `/home/cgomes/` to store the `log/` subdir
+## Example 3: Test recursively, delete bad files, and use `/tmp/` to store the `log/` subdir
 ```
-./diagnostic-tool.sh -t /full/path/to/music/folder/ -p delete -l /home/cgomes
+./diagnostic-tool.sh -t /full/path/to/music/folder/ -p delete -l /tmp/
 ```
