@@ -1,15 +1,15 @@
 # audio-diagnostic-tool
-This is a CLI diagnostic tool for audio files written in GNU Bash that extends my previous [*bash-flac-diag*](https://github.com/cgomesu/bash-flac-diag) tool to mp3 and other audio formats. In brief, it tests a single or multiple audio files ([see Supported Formats](#supported-formats)) and generates logs with good files (no errors found) and bad ones (at least one error found). Tests are performed by codec-specific tools. There are two post-processing modes for bad files: fix or delete ([see Usage](#usage)).
+This is a CLI diagnostic tool for audio files written in GNU Bash that extends my previous [bash-flac-diag tool](https://github.com/cgomesu/bash-flac-diag) to mp3 and other audio formats. In brief, it tests a single or multiple audio files ([see Supported Formats](#supported-formats)) and generates logs with good files (no errors found) and bad ones (at least one error found). Tests are performed by codec-specific tools ([see Requisites](#requisites)). There are two post-processing modes for bad files: fix or delete ([see Usage](#usage)).
 
-This tool is meant to be used to identify corrupted audio files that should be deleted from an audio library, for example. Here's a demo of it:
+This tool is meant to be used to identify corrupted audio files that should be fixed or deleted from an audio library, for example, or added as a post-processing command for audio-downloaders to create a new audio integrity check layer. Here's a demo of it:
 
 <p align="center">
 	<a href="https://youtu.be/RwcA_2fjmv4"><img src="img/demo.gif"></a>
 </p>
 
-# Supported formats
-* **flac**
-* **mp1, mp2, mp3**
+# Supported Formats
+* flac
+* mp1, mp2, mp3
 
 This list is not meant to be static. The goal is to keep adding new formats as I learn about other codec-specific tools that are able to test for errors and fix common issues. 
 
