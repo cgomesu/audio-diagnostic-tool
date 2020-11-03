@@ -3,7 +3,6 @@
 # author: cgomesu
 # original repo: https://github.com/cgomesu/audio-diagnostic-tool
 # tools docs:
-#   ffmpeg: https://ffmpeg.org/documentation.html
 #   flac: https://xiph.org/flac/documentation_tools_flac.html
 #   mp3val: http://mp3val.sourceforge.net/docs/manual.html
 
@@ -106,7 +105,7 @@ check_dirs_files () {
 }
 
 check_packages () {
-	local PACKAGES=('ffmpeg' 'flac' 'mp3val')
+	local PACKAGES=('flac' 'mp3val')
 	echo '[audio-diag] Checking required packages: '${PACKAGES[@]}
 	for pkg in ${PACKAGES[@]}; do
 		if [[ -z $(command -v $pkg) ]]; then
@@ -150,7 +149,7 @@ diagnosis_run () {
 		echo "$TARGET" > "$AUDIO_FILES"
 	fi
 	echo '---------------'
-	while read audio_file; do
+	while read -r audio_file; do
 		echo '[audio-diag] Processing: '"$audio_file"
 		echo '[audio-diag] Date: '$(date)
 		# skip files that have been tested before
@@ -199,7 +198,7 @@ diagnosis_run () {
 		elif [[ $audio_file =~ (M|m)(P|p)(1|2|3)$ ]]; then
 			echo '[audio-diag] Testing with mp3val...'
 			mp3val -si "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
-			if [[  $(cat "$AUDIO_FILE_TEST") =~ WARNING\: ]]; then
+			if [[  $(cat "$AUDIO_FILE_TEST") =~ (WARNING\:|ERROR\:) ]]; then
 				if [[ -f "$audio_file" ]]; then
 					echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
 					# TODO: Parse errors because some are not critical
@@ -213,23 +212,6 @@ diagnosis_run () {
 				echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
 				FLAG_CORRUPTED=false
 			fi
-		# else
-		# 	# ffmpeg as the last resort because it is more lenient
-		# 	echo '[audio-diag] Testing with ffmpeg...'
-		# 	ffmpeg -i "$audio_file" -v error -f null - > "$AUDIO_FILE_TEST" 2>&1
-		# 	if [[ $(cat "$AUDIO_FILE_TEST") ]]; then
-		# 		if [[ -f "$audio_file" ]]; then
-		# 			echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
-		# 			FLAG_CORRUPTED=true
-		# 		else
-		# 			echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
-		# 			echo '---------------'
-		# 			continue
-		# 		fi
-		# 	else
-		# 		echo '[audio-diag] Good news, everyone! The audio file is OKAY!'
-		# 		FLAG_CORRUPTED=false
-		# 	fi
 		fi
 		# post-processing
 		if [[ $FLAG_CORRUPTED = true ]]; then
@@ -247,11 +229,11 @@ diagnosis_run () {
 			fi
 			if [[ $POST_PROCESSING = fix ]]; then
 				echo '[audio-diag] POST-PROCESSING: FIX'
-				# TODO: Fix postprocessing
 				cache audio_file_fix
 				AUDIO_FILE_FIX="$CACHE"
 				echo '[audio-diag] Fixing file: '"$audio_file"
 				if [[ "$audio_file" =~ (F|f)(L|l)(A|a)(C|c)$ ]]; then
+					# silent, force overwwrite, decode through errors
 					flac -sfF "$audio_file" > "$AUDIO_FILE_FIX" 2>&1
 					if [[ ! -z $(cat "$AUDIO_FILE_FIX") ]]; then
 						echo '[audio-diag] WARNING: There was an error while fixing the file.'
@@ -266,20 +248,22 @@ diagnosis_run () {
 								echo '[audio-diag] WARNING: Continued to get an error while fixing the file. File might be unfixable.'
 								echo '[audio-diag] WARNING: Manually check its error file at '"$ERRORS"
 							else
-								echo '[audio-diag] Good news! Finished fixing without errors.'
+								echo '[audio-diag] Good news, everyone! Finished fixing without errors.'
 							fi
 						else
-							echo '[audio-diag] Good news! Finished fixing without errors.'
+							echo '[audio-diag] Good news, everyone! Finished fixing without errors.'
 						fi
 					else
-						echo '[audio-diag] Good news! Finished fixing without errors.'
+						echo '[audio-diag] Good news, everyone! Finished fixing without errors.'
 					fi
 				elif [[ "$audio_file" =~ (M|m)(P|p)(1|2|3)$ ]]; then
-					# TODO: missing mp3val fix
-					echo 'fix mp3val'
-				# else
-				# 	# TODO: missing ffmpeg fix
-				# 	echo 'fix ffmpeg'
+					# suppress info msgs, fix, remove backup
+					mp3val -si -f -nb "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
+					if [[  $(cat "$AUDIO_FILE_TEST") =~ FIXED\: ]]; then
+						echo '[audio-diag] Good news, everyone! The file was fixed.'
+					else
+						echo '[audio-diag] WARNING: Unable to fix this file.'
+					fi
 				fi
 			elif [[ $POST_PROCESSING = delete ]]; then
 				echo '[audio-diag] POST-PROCESSING: DELETE'
@@ -311,10 +295,7 @@ defaults () {
 		exit 1
 	fi
 	if [[ -z $EXTENSIONS ]]; then
-		# mostly from https://en.wikipedia.org/wiki/Audio_file_format#List_of_formats
-		EXTENSIONS=('3gp' 'aa' 'aac' 'aax' 'act' 'aiff' 'alac' 'amr' 'ape' 'au' 'awb' 'dct' 'dss' 'dvf' 'flac' 'gsm' 
-			'ivs' 'm4a' 'm4b' 'm4p' 'mmf' 'mp1' 'mp2' 'mp3' 'mpc' 'msv' 'nmf' 'ogg' 'oga' 'mogg' 'opus' 'ra' 
-			'rm' 'raw' 'rf64' 'tta' 'voc' 'vox' 'wav' 'wma' 'wv' 'webm' 'cda')
+		EXTENSIONS=('flac' 'mp1' 'mp2' 'mp3')
 	fi
 	if [[ -z "$LOG_DIR" ]]; then
 		LOG_DIR=./log/
