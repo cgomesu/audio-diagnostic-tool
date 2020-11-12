@@ -40,7 +40,7 @@ check_commands () {
   echo '[audio-diag] Checking the required commands: '"${COMMANDS[@]}"
   for cmd in "${COMMANDS[@]}"; do
     if [[ -z $(command -v $cmd) ]]; then
-      echo '[audio-diag] The following command cannot be found in this users $PATH:' $cmd
+      echo '[audio-diag] The following command cannot be found in this user PATH: '$cmd
       echo '[audio-diag] Fix it and  try again.'
       exit 1
     else
@@ -70,7 +70,7 @@ check_dirs_files () {
         while [[ ! -d "$NEW_LOG_DIR" ]]; do
           read -r -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' NEW_LOG_DIR
         done
-        if [[ ! "$NEW_LOG_DIR" =~ \/$ ]]; then
+        if [[ ! "$NEW_LOG_DIR" =~ /$ ]]; then
           LOG_DIR=$NEW_LOG_DIR'/log/'
         else
           LOG_DIR=$NEW_LOG_DIR'log/'
@@ -79,7 +79,7 @@ check_dirs_files () {
         mkdir "$LOG_DIR" 2> "$CACHE"
         if [[ ! -z $(cat "$CACHE") ]]; then
           echo '[audio-diag] There was an error making the directory at '"$LOG_DIR"
-          echo '[audio-diag] Message: '$(cat "$CACHE")
+          echo '[audio-diag] Message: '"$(cat "$CACHE")"
           end 'Unable to make a log directory.' 1
         else
           echo '[audio-diag] The log directory will be at '"$LOG_DIR"
@@ -111,7 +111,7 @@ check_packages () {
   echo '[audio-diag] Checking required packages: '"${PACKAGES[@]}"
   for pkg in "${PACKAGES[@]}"; do
     if [[ -z $(command -v $pkg) ]]; then
-      echo '[audio-diag] The following package is not installed or cannot be found in this users $PATH:' $pkg
+      echo '[audio-diag] The following package is not installed or cannot be found in this user PATH: '$pkg
       install $pkg
     else
       echo '[audio-diag] '$pkg': OK'
@@ -145,7 +145,7 @@ diagnosis_run () {
       echo '[audio-diag] Did not find a single audio file in '"$TARGET"' and its subdirs.'
       end 'No audio files found.' 0
     else
-      echo '[audio-diag] Found a total of '$(wc -l "$AUDIO_FILES" | tr -cd [:digit:])' audio files in '"$TARGET"' and its subdirs.'
+      echo '[audio-diag] Found a total of '"$(wc -l "$AUDIO_FILES" | tr -cd [:digit:])"' audio files in '"$TARGET"' and its subdirs.'
     fi
   else
     echo "$TARGET" > "$AUDIO_FILES"
@@ -153,7 +153,7 @@ diagnosis_run () {
   echo '---------------'
   while read -r audio_file; do
     echo '[audio-diag] Processing: '"$audio_file"
-    echo '[audio-diag] Date: '$(date)
+    echo '[audio-diag] Date: '"$(date)"
     # skip files that have been tested before
     if [[ $(cat "$GOOD_LOG") =~ "$audio_file" ]]; then
       echo '[audio-diag] This file has already been processed before and it was GOOD then.'
@@ -219,7 +219,7 @@ diagnosis_run () {
     if [[ $FLAG_CORRUPTED = true ]]; then
       echo '[audio-diag] The file will be appended to '"$BAD_LOG"
       echo "$audio_file" >> "$BAD_LOG"
-      if [[ "$audio_file" =~ [^\/]+$ ]]; then
+      if [[ "$audio_file" =~ [^/]+$ ]]; then
         echo '[audio-diag] To investigate the error, check '"$ERRORS"
         ERROR_FILE="$ERRORS""${BASH_REMATCH[0]}"'.txt'
         cat "$AUDIO_FILE_TEST" > "$ERROR_FILE"
@@ -239,7 +239,7 @@ diagnosis_run () {
           flac -sfF "$audio_file" > "$AUDIO_FILE_FIX" 2>&1
           if [[ ! -z $(cat "$AUDIO_FILE_FIX") ]]; then
             echo '[audio-diag] WARNING: There was an error while fixing the file.'
-            echo '[audio-diag] Message: '$(cat "$AUDIO_FILE_FIX")
+            echo '[audio-diag] Message: '"$(cat "$AUDIO_FILE_FIX")"
             echo '[audio-diag] Testing and fixing it one more time...'
             > "$AUDIO_FILE_TEST"
             flac -st "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
@@ -261,7 +261,7 @@ diagnosis_run () {
         elif [[ "$audio_file" =~ (M|m)(P|p)(1|2|3)$ ]]; then
           # suppress info msgs, fix, remove backup
           mp3val -si -f -nb "$audio_file" > "$AUDIO_FILE_TEST" 2>&1
-          if [[  $(cat "$AUDIO_FILE_TEST") =~ FIXED\: ]]; then
+          if [[  $(cat "$AUDIO_FILE_TEST") =~ FIXED: ]]; then
             echo '[audio-diag] Good news, everyone! The file was fixed.'
           else
             echo '[audio-diag] WARNING: Unable to fix this file.'
@@ -273,9 +273,9 @@ diagnosis_run () {
         AUDIO_FILE_DELETE="$CACHE"
         echo '[audio-diag] Deleting file: '"$audio_file"
         rm -f "$audio_file" 2> "$AUDIO_FILE_DELETE"
-        if [[ ! -z $(cat "$AUDIO_FILE_DELETE") ]]; then
+        if [[ ! -z "$(cat "$AUDIO_FILE_DELETE")" ]]; then
           echo '[audio-diag] There was an error deleting the file.'
-          echo '[audio-diag] Message: '$(cat "$AUDIO_FILE_DELETE")
+          echo '[audio-diag] Message: '"$(cat "$AUDIO_FILE_DELETE")"
         else
           echo '[audio-diag] File deleted!'
         fi
@@ -331,7 +331,7 @@ install () {
     exit 1
   else
     if [[ -z $OS ]]; then
-      if [[ $(hostnamectl) =~ Operating\ System\:\ (.*) || $(cat /etc/*-release) =~ NAME=\"(.*)\" ]]; then
+      if [[ $(hostnamectl) =~ Operating\ System:\ (.*) || $(cat /etc/*-release) =~ NAME=\"(.*)\" ]]; then
         OS="${BASH_REMATCH[1]}"
       else
         echo '[audio-diag] Unable to parse the name of the operating system.'
@@ -381,7 +381,7 @@ start () {
   echo 'For more information, check the repo:'
   echo 'https://github.com/cgomesu/audio-diagnostic-tool'
   echo '#################################################'
-  echo 'Date: '$(date)
+  echo 'Date: '"$(date)"
   echo '#################################################'
 }
 
@@ -428,7 +428,7 @@ while getopts 'e:hl:p:t:' OPT; do
         echo 'The directory '"$ROOT_LOG_DIR"' does not exist.'
         exit 1
       else
-        if [[ ! "$ROOT_LOG_DIR" =~ \/$ ]]; then
+        if [[ ! "$ROOT_LOG_DIR" =~ /$ ]]; then
           LOG_DIR="$ROOT_LOG_DIR"'/log/'
         else
           LOG_DIR="$ROOT_LOG_DIR"'log/'
@@ -471,7 +471,7 @@ done
 
 defaults
 start
-trap 'echo "!! ATTENTION !!"; end "Received a signal to stop" 1' SIGINT SIGHUP SIGTERM SIGKILL
+trap 'echo "!! ATTENTION !!"; end "Received a signal to stop" 1' SIGINT SIGHUP SIGTERM
 diagnosis_config
 diagnosis_run
 end "Finished running succesfully!" 0
