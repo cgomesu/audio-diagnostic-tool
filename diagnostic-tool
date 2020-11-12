@@ -1,10 +1,13 @@
 #!/bin/bash
 
-# author: cgomesu
-# original repo: https://github.com/cgomesu/audio-diagnostic-tool
-# tools docs:
+#############################################################
+# Author: cgomesu
+# Repo: https://github.com/cgomesu/audio-diagnostic-tool
+# Tools doc:
 #   flac: https://xiph.org/flac/documentation_tools_flac.html
 #   mp3val: http://mp3val.sourceforge.net/docs/manual.html
+#############################################################
+
 
 are_you_sure () {
   unset ARE_YOU_SURE_INPUT
@@ -21,17 +24,10 @@ cache () {
   else
     FILENAME="$1"
   fi
-  # cache to memory
   CACHE_ROOT='/tmp/audio-diag/'
-  if [[ ! -d "$CACHE_ROOT" ]]; then
-    mkdir "$CACHE_ROOT"
-  fi
+  if [[ ! -d "$CACHE_ROOT" ]]; then mkdir "$CACHE_ROOT"; fi
   CACHE=$CACHE_ROOT$FILENAME'.tmp'
-  if [[ ! -f "$CACHE" ]]; then
-    touch "$CACHE"
-  else
-    > "$CACHE"
-  fi
+  if [[ ! -f "$CACHE" ]]; then touch "$CACHE"; else > "$CACHE"; fi
 }
 
 check_commands () {
@@ -121,21 +117,16 @@ check_packages () {
 }
 
 cleanup () {
-  # remove cache file
-  if [[ -d "$CACHE_ROOT" ]]; then
-    rm -rf "$CACHE_ROOT"
-  fi
+  # remove cache dir
+  if [[ -d "$CACHE_ROOT" ]]; then rm -rf "$CACHE_ROOT"; fi
 }
 
 diagnosis_config () {
-  check_packages
-  check_commands
-  check_dirs_files
+  check_packages; check_commands; check_dirs_files
 }
 
 diagnosis_run () {
-  cache audio_files
-  AUDIO_FILES="$CACHE"
+  cache audio_files; AUDIO_FILES="$CACHE"
   if [[ -d "$TARGET" ]]; then
     echo '[audio-diag] Searching for audio files in '"$TARGET"'. This may take a while...'
     for ext in "${EXTENSIONS[@]}"; do
@@ -176,8 +167,7 @@ diagnosis_run () {
     fi
     # test file
     unset FLAG_CORRUPTED
-    cache audio_file_test
-    AUDIO_FILE_TEST="$CACHE"
+    cache audio_file_test; AUDIO_FILE_TEST="$CACHE"
     if [[ "$audio_file" =~ (F|f)(L|l)(A|a)(C|c)$ ]]; then
       echo '[audio-diag] Testing with flac...'
       # flac cli tool in test mode, output only errors
@@ -186,7 +176,7 @@ diagnosis_run () {
         # catch file not being accessible after testing
         if [[ -f "$audio_file" ]]; then
           echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
-          # TODO: Parse errors because some are not critical
+          # TODO(cgomesu): Parse errors because some are not critical
           FLAG_CORRUPTED=true
         else
           echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
@@ -203,7 +193,7 @@ diagnosis_run () {
       if [[  $(cat "$AUDIO_FILE_TEST") =~ (WARNING\:|ERROR\:) ]]; then
         if [[ -f "$audio_file" ]]; then
           echo '[audio-diag] Uh-oh! The file HAS AN ERROR!'
-          # TODO: Parse errors because some are not critical
+          # TODO(cgomesu): Parse errors because some are not critical
           FLAG_CORRUPTED=true
         else
           echo '[audio-diag] WARNING: This file is NO LONGER ACCESSIBLE. Skipping file.'
@@ -231,8 +221,7 @@ diagnosis_run () {
       fi
       if [[ $POST_PROCESSING = fix ]]; then
         echo '[audio-diag] POST-PROCESSING: FIX'
-        cache audio_file_fix
-        AUDIO_FILE_FIX="$CACHE"
+        cache audio_file_fix; AUDIO_FILE_FIX="$CACHE"
         echo '[audio-diag] Fixing file: '"$audio_file"
         if [[ "$audio_file" =~ (F|f)(L|l)(A|a)(C|c)$ ]]; then
           # silent, force overwwrite, decode through errors
@@ -269,8 +258,7 @@ diagnosis_run () {
         fi
       elif [[ $POST_PROCESSING = delete ]]; then
         echo '[audio-diag] POST-PROCESSING: DELETE'
-        cache audio_file_delete
-        AUDIO_FILE_DELETE="$CACHE"
+        cache audio_file_delete; AUDIO_FILE_DELETE="$CACHE"
         echo '[audio-diag] Deleting file: '"$audio_file"
         rm -f "$audio_file" 2> "$AUDIO_FILE_DELETE"
         if [[ ! -z "$(cat "$AUDIO_FILE_DELETE")" ]]; then
@@ -292,19 +280,10 @@ diagnosis_run () {
 
 defaults () {
   # required then optional
-  if [[ -z "$TARGET" ]]; then
-    echo 'ERROR: The argument -t is required.'
-    exit 1
-  fi
-  if [[ -z $EXTENSIONS ]]; then
-    EXTENSIONS=('flac' 'mp1' 'mp2' 'mp3')
-  fi
-  if [[ -z "$LOG_DIR" ]]; then
-    LOG_DIR=./log/
-  fi
-  if [[ -z $POST_PROCESSING ]]; then
-    POST_PROCESSING='none'
-  fi
+  if [[ -z "$TARGET" ]]; then echo 'ERROR: The argument -t is required.'; exit 1; fi
+  if [[ -z $EXTENSIONS ]]; then EXTENSIONS=('flac' 'mp1' 'mp2' 'mp3'); fi
+  if [[ -z "$LOG_DIR" ]]; then LOG_DIR=./log/; fi
+  if [[ -z $POST_PROCESSING ]]; then POST_PROCESSING='none'; fi
 }
 
 # takes msg and status as arg
@@ -320,7 +299,7 @@ end () {
 # takes a package as arg
 install () {
   local PACKAGE_NAME; PACKAGE_NAME="$1"
-  # TODO: On install failure, we could flag the package and try to skip its usage instead of exiting
+  # TODO(cgomesu): On install failure, we could flag the package and try to skip its usage instead of exiting
   echo '---------------'
   while [[ ! $INSTALL_INPUT = 'y' && ! $INSTALL_INPUT = 'n' ]]; do
     read -r -p '[audio-diag] Would you like to install the missing package now? (y/n): ' INSTALL_INPUT
@@ -335,13 +314,9 @@ install () {
         OS="${BASH_REMATCH[1]}"
       else
         echo '[audio-diag] Unable to parse the name of the operating system.'
-        # try finding a package manager then
         local PACKAGE_MANAGERS; PACKAGE_MANAGERS=('apt' 'pacman' 'yum')
         for pckmng in "${PACKAGE_MANAGERS[@]}"; do
-          if [[ -z $(command -v $pckmng) ]]; then
-            PACKAGE_MANAGER=$pckmng
-            break
-          fi
+          if [[ -z $(command -v $pckmng) ]]; then PACKAGE_MANAGER=$pckmng; break; fi
         done
         if [[ -z $PACKAGE_MANAGER ]]; then
           echo '[audio-diag] Also unable to find a package manager.'
@@ -386,7 +361,7 @@ start () {
 }
 
 usage () {
-  echo ''  
+  echo ''
   echo 'Author: cgomesu'
   echo 'Repo: https://github.com/cgomesu/audio-diagnostic-tool'
   echo ''
@@ -394,7 +369,7 @@ usage () {
   echo ''
   echo 'Usage:'
   echo ''
-  echo "$0" '-t /path/to/dir/or/file [OPTIONS]'
+  echo "$0"' -t /path/to/dir/or/file [OPTIONS]'
   echo ''
   echo '  Required:'
   echo '    -t  str  Path to a dir or file to be tested. If dir, it works recursively as well.'
@@ -411,22 +386,19 @@ while getopts 'e:hl:p:t:' OPT; do
   case ${OPT} in
     e)
       EXTENSION="$OPTARG"
-            if [[ ! $EXTENSION =~ ^[a-zA-Z0-9]+$ ]]; then
-        echo 'The audio file extension can only contain alphanumeric characters.'
-        exit 1
+      if [[ ! $EXTENSION =~ ^[a-zA-Z0-9]+$ ]]; then
+        echo 'The audio file extension can only contain alphanumeric characters.'; exit 1
       else
         EXTENSIONS=($EXTENSION)
       fi
       ;;
     h)
-      usage
-      exit 0
+      usage; exit 0
       ;;
     l)
       ROOT_LOG_DIR="$OPTARG"
       if [[ ! -d "$ROOT_LOG_DIR" ]]; then
-        echo 'The directory '"$ROOT_LOG_DIR"' does not exist.'
-        exit 1
+        echo 'The directory '"$ROOT_LOG_DIR"' does not exist.'; exit 1
       else
         if [[ ! "$ROOT_LOG_DIR" =~ /$ ]]; then
           LOG_DIR="$ROOT_LOG_DIR"'/log/'
@@ -438,8 +410,7 @@ while getopts 'e:hl:p:t:' OPT; do
     p)
       POST_PROCESSING="$OPTARG"
       if [[ ! $POST_PROCESSING =~ ^(fix|delete|none)$ ]]; then
-        echo 'Post-processing mode must be either fix or delete or none.'
-        exit 1
+        echo 'Post-processing mode must be either fix or delete or none.'; exit 1
       elif [[ $POST_PROCESSING =~ ^fix$ ]]; then
         echo 'Post-processing mode is set to FIX corrupted files.'
         echo 'WARNING: This mode will permanently OVERWRITE ALL audio files tagged as corrupted.'
@@ -450,28 +421,26 @@ while getopts 'e:hl:p:t:' OPT; do
         are_you_sure
       fi
       if [[ $ARE_YOU_SURE_INPUT = 'n' ]]; then
-        echo 'Better safe than sorry!'
-        exit 0
+        echo 'Better safe than sorry!'; exit 0
       fi
       ;;
     t)
       TARGET="$OPTARG"
       if [[ ! -d "$TARGET" && ! -f "$TARGET" ]]; then
-        echo 'The argument -t must be either a directory or a file.'
-        exit 1
+        echo 'The argument -t must be either a directory or a file.'; exit 1
       fi
       ;;
     \?)
-      echo 'ERROR: Invalid option in the arguments.'
-      usage
-      exit 1
+      echo 'ERROR: Invalid option in the arguments.'; usage; exit 1
       ;;
   esac
 done
 
 defaults
+
 start
 trap 'echo "!! ATTENTION !!"; end "Received a signal to stop" 1' SIGINT SIGHUP SIGTERM
-diagnosis_config
-diagnosis_run
+
+diagnosis_config;diagnosis_run
+
 end "Finished running succesfully!" 0
