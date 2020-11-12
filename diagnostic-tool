@@ -37,8 +37,8 @@ cache () {
 check_commands () {
   local COMMANDS
   COMMANDS=('cat' 'date' 'dirname' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
-  echo '[audio-diag] Checking the required commands: '${COMMANDS[@]}
-  for cmd in ${COMMANDS[@]}; do
+  echo '[audio-diag] Checking the required commands: '"${COMMANDS[@]}"
+  for cmd in "${COMMANDS[@]}"; do
     if [[ -z $(command -v $cmd) ]]; then
       echo '[audio-diag] The following command cannot be found in this users $PATH:' $cmd
       echo '[audio-diag] Fix it and  try again.'
@@ -108,8 +108,8 @@ check_dirs_files () {
 
 check_packages () {
   local PACKAGES; PACKAGES=('flac' 'mp3val')
-  echo '[audio-diag] Checking required packages: '${PACKAGES[@]}
-  for pkg in ${PACKAGES[@]}; do
+  echo '[audio-diag] Checking required packages: '"${PACKAGES[@]}"
+  for pkg in "${PACKAGES[@]}"; do
     if [[ -z $(command -v $pkg) ]]; then
       echo '[audio-diag] The following package is not installed or cannot be found in this users $PATH:' $pkg
       install $pkg
@@ -138,7 +138,7 @@ diagnosis_run () {
   AUDIO_FILES="$CACHE"
   if [[ -d "$TARGET" ]]; then
     echo '[audio-diag] Searching for audio files in '"$TARGET"'. This may take a while...'
-    for ext in ${EXTENSIONS[@]}; do
+    for ext in "${EXTENSIONS[@]}"; do
       find "$TARGET" -iname "*$ext" -printf "%p\n" >> "$AUDIO_FILES"
     done
     if [[ -z $(cat "$AUDIO_FILES") ]]; then
@@ -337,7 +337,7 @@ install () {
         echo '[audio-diag] Unable to parse the name of the operating system.'
         # try finding a package manager then
         local PACKAGE_MANAGERS; PACKAGE_MANAGERS=('apt' 'pacman' 'yum')
-        for pckmng in ${PACKAGE_MANAGERS[@]}; do
+        for pckmng in "${PACKAGE_MANAGERS[@]}"; do
           if [[ -z $(command -v $pckmng) ]]; then
             PACKAGE_MANAGER=$pckmng
             break
