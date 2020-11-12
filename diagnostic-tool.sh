@@ -14,11 +14,12 @@ are_you_sure () {
 }
 
 cache () {
+  local FILENAME
   if [[ -z "$1" ]]; then
     echo '[audio-diag] Cache file was not specified. Assuming generic.'
-    local FILENAME='generic'
+    FILENAME='generic'
   else
-    local FILENAME="$1"
+    FILENAME="$1"
   fi
   # cache to memory
   CACHE_ROOT='/tmp/audio-diag/'
@@ -34,7 +35,8 @@ cache () {
 }
 
 check_commands () {
-  local COMMANDS=('cat' 'date' 'dirname' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
+  local COMMANDS
+  COMMANDS=('cat' 'date' 'dirname' 'echo' 'find' 'mkdir' 'read' 'rm' 'touch' 'tr' 'unset' 'wc')
   echo '[audio-diag] Checking the required commands: '${COMMANDS[@]}
   for cmd in ${COMMANDS[@]}; do
     if [[ -z $(command -v $cmd) ]]; then
@@ -105,7 +107,7 @@ check_dirs_files () {
 }
 
 check_packages () {
-  local PACKAGES=('flac' 'mp3val')
+  local PACKAGES; PACKAGES=('flac' 'mp3val')
   echo '[audio-diag] Checking required packages: '${PACKAGES[@]}
   for pkg in ${PACKAGES[@]}; do
     if [[ -z $(command -v $pkg) ]]; then
@@ -317,7 +319,7 @@ end () {
 
 # takes a package as arg
 install () {
-  local PACKAGE_NAME="$1"
+  local PACKAGE_NAME; PACKAGE_NAME="$1"
   # TODO: On install failure, we could flag the package and try to skip its usage instead of exiting
   echo '---------------'
   while [[ ! $INSTALL_INPUT = 'y' && ! $INSTALL_INPUT = 'n' ]]; do
@@ -334,7 +336,7 @@ install () {
       else
         echo '[audio-diag] Unable to parse the name of the operating system.'
         # try finding a package manager then
-        local PACKAGE_MANAGERS=('apt' 'pacman' 'yum')
+        local PACKAGE_MANAGERS; PACKAGE_MANAGERS=('apt' 'pacman' 'yum')
         for pckmng in ${PACKAGE_MANAGERS[@]}; do
           if [[ -z $(command -v $pckmng) ]]; then
             PACKAGE_MANAGER=$pckmng
