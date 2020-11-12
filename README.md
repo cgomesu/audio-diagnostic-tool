@@ -49,7 +49,7 @@ sudo chmod +x audio-diagnostic-tool/ -R
 # Usage
 ```
 
-./diagnostic-tool.sh -t /path/to/dir/or/file [OPTIONS]
+./diagnostic-tool -t /path/to/dir/or/file [OPTIONS]
 
   Required:
     -t  str  Path to a dir or file to be tested. If dir, it works recursively as well.
@@ -65,34 +65,34 @@ sudo chmod +x audio-diagnostic-tool/ -R
 This tool will *always* generate log files and after running more than once, it will *always* check previously created log files to make sure the current audio file has not been tested before; otherwise, the file is skipped.  So, if you need to re-test one or multiple files, make sure to delete the previous log files or use a different path to the `log/` subdir (`-l`). 
 
 # Examples
-To scan and test all supported audio files in a music directory recursively, simply run `diagnostic-tool.sh` adding the `-t /full/path/to/music/folder/` as argument, as follows:
+To scan and test all supported audio files in a music directory recursively, simply run `diagnostic-tool` adding the `-t /full/path/to/music/folder/` as argument, as follows:
 
 ```
-./diagnostic-tool.sh -t /full/path/to/music/folder/
+./diagnostic-tool -t /full/path/to/music/folder/
 ```
 or
 ```
-bash diagnostic-tool.sh -t /full/path/to/music/folder/
+bash diagnostic-tool -t /full/path/to/music/folder/
 ```
 
 This will create a `./log` subdir with two log files, namely `bad_files.log` and `good_files.log`.  The former has a list with the path of each file that has produced at least a single error, while the latter has a list with the path of each file that has not produced any errors.  A detailed description of all errors produced by each file are stored on `./log/errors/` for debugging. (Optionally, you may specify a custom directory for the `log/` subdir by using the `-l` argument followed by the full path to an exisiting directory where the `log/` subdir will be created.)
 
 ## Example 0: Test a single file
 ```
-./diagnostic-tool.sh -t /full/path/to/file
+./diagnostic-tool -t /full/path/to/file
 ```
 
 ## Example 1: Test only `mp3` files recursively
 ```
-./diagnostic-tool.sh -t /full/path/to/music/folder/ -e mp3
+./diagnostic-tool -t /full/path/to/music/folder/ -e mp3
 ```
 
 ## Example 2: Test files recursively and fix bad files
 ```
-./diagnostic-tool.sh -t /full/path/to/music/folder/ -p fix
+./diagnostic-tool -t /full/path/to/music/folder/ -p fix
 ```
 
 ## Example 3: Test recursively, delete bad files, and use `/tmp/` to store the `log/` subdir
 ```
-./diagnostic-tool.sh -t /full/path/to/music/folder/ -p delete -l /tmp/
+./diagnostic-tool -t /full/path/to/music/folder/ -p delete -l /tmp/
 ```
