@@ -9,7 +9,7 @@
 are_you_sure () {
   unset ARE_YOU_SURE_INPUT
   while [[ ! $ARE_YOU_SURE_INPUT = 'y' && ! $ARE_YOU_SURE_INPUT = 'n' ]]; do
-    read -p 'Are you sure you want to continue? (y/n): ' ARE_YOU_SURE_INPUT
+    read -r -p 'Are you sure you want to continue? (y/n): ' ARE_YOU_SURE_INPUT
   done
 }
 
@@ -59,14 +59,14 @@ check_dirs_files () {
       echo '[audio-diag] There was an error making the directory '"$LOG_DIR"
       echo '[audio-diag] Message: '$(cat "$CACHE")
       while [[ ! $LOG_DIR_INPUT = 'y' && ! $LOG_DIR_INPUT = 'n' ]]; do
-        read -p '[audio-diag] Would you like to provide a custom path? (y/n): ' LOG_DIR_INPUT
+        read -r -p '[audio-diag] Would you like to provide a custom path? (y/n): ' LOG_DIR_INPUT
       done
       if [[ $LOG_DIR_INPUT = 'n' ]]; then
         echo '[audio-diag] The log directory is required.'
         end 'Unable to make a log directory.' 1
       else
         while [[ ! -d "$NEW_LOG_DIR" ]]; do
-          read -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' NEW_LOG_DIR
+          read -r -p '[audio-diag] Enter the full path to an existing directory (/path/to/dir/): ' NEW_LOG_DIR
         done
         if [[ ! "$NEW_LOG_DIR" =~ \/$ ]]; then
           LOG_DIR=$NEW_LOG_DIR'/log/'
@@ -321,7 +321,7 @@ install () {
   # TODO: On install failure, we could flag the package and try to skip its usage instead of exiting
   echo '---------------'
   while [[ ! $INSTALL_INPUT = 'y' && ! $INSTALL_INPUT = 'n' ]]; do
-    read -p '[audio-diag] Would you like to install the missing package now? (y/n): ' INSTALL_INPUT
+    read -r -p '[audio-diag] Would you like to install the missing package now? (y/n): ' INSTALL_INPUT
   done
   if [[ $INSTALL_INPUT = 'n' ]]; then
     echo '[audio-diag] All packages are required.'
